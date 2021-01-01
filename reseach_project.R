@@ -1,4 +1,5 @@
 rm(list = ls())
+
 if (!require("MASS")) install.packages("MASS")
 if (!require("ggplot2")) install.packages("ggplot2")
 if (!require("akima")) install.packages("akima")
@@ -6,11 +7,14 @@ if (!require("plotly")) install.packages("plotly")
 if (!require("reshape2")) install.packages("reshape2")
 # if (!require("cowplot")) install.packages("cowplot")
 if (!require("plm")) install.packages("plm")
+
 set.seed(100)
 
+#######################
+#####     DGP     #####
+#######################
 
-##### DGP #####
-DGP <- function(K, T_, N, beta_i){
+DGP1 <- function(K, T_, N, beta_i){
   if(length(beta_i) != K){
     warning("length of beta_i != K")
     return(c())
@@ -23,16 +27,11 @@ DGP <- function(K, T_, N, beta_i){
   X <- lapply(as.list(1:N), function(i) array(runif(K*T_,range_x[1],range_x[2]), dim = c(T_, K)))
   U <- lapply(as.list(1:N), function(i) mvrnorm(n = 1, mu = mu_u_i, Sigma = sigma_u_i))
   Y <- mapply(function(X_i, u_i) alpha_i + X_i %*% beta_i + u_i, X, U, SIMPLIFY=F)
-  # X <- list()
-  # Y <- list()
-  # for(i in 1:N){
+  
   #     X_i <- array(runif(K*T_,range_x[1],range_x[2]), dim = c(T_, K))
   #     u_i = mvrnorm(n = 1, mu = mu_u_i, Sigma = sigma_u_i)
   #     Y_i = alpha_i + X_i %*% beta_i + u_i
-  #     
-  #     X[[i]] = X_i
-  #     Y[[i]] = Y_i
-  # }
+
   
   df <- data.frame(i = rep(c(1:N), each = T_),
                    t = rep(c(1:T_), times = N),
@@ -80,6 +79,53 @@ DGP2 <- function(T_, N, beta=c(1,2)){
   return(df)
 }
 
+DGP3 <- function(T_, N, beta=c(1,3)){
+  r<-2
+  K<-2
+  mu <- 5
+  gamma <- 2
+  delta <- 4
+  iota <- c(1,1)
+  mu1 <- mu2 <- c1 <- c2 <- 1
+  
+  F_t <- matrix(rnorm(n = 2*T_, mean = 0, sd = 1), nrow=2, ncol=T_)
+  Lambda_i <- matrix(rnorm(n = 2*N, mean = 0, sd = 1), nrow=2, ncol=N)
+  Eta_it_1 <- matrix(rnorm(n = T_*N, mean = 0, sd = 1), nrow=N, ncol=T_)
+  Eta_it_2 <- matrix(rnorm(n = T_*N, mean = 0, sd = 1), nrow=N, ncol=T_)
+  Eps_it <- matrix(rnorm(n = T_*N, mean = 0, sd = 4), nrow=N, ncol=T_)
+  e_i <- rnorm(n = N, mean = 0, sd = 1)
+  eta_t <- rnorm(n = T_, mean = 0, sd = 1) # eta_i or eta_t ? n = N or n = T_ ?
+  
+  x_i <- t(iota) %*% Lambda_i + e_i
+  w_t <- t(iota) %*% F_t + eta_t
+  
+  df <- data.frame(i = rep(c(1:N), each = T_),
+                   t = rep(c(1:T_), times = N),
+                   y_it = NA, x_it_1 = NA, x_it_2 = NA)
+  
+  for(i in 1:N){
+    for(t in 1:T_){
+      X_it_1 <- mu1 + c1 * t(Lambda_i[,i]) %*% F_t[,t] + 
+        t(iota) %*% Lambda_i[,i] + t(iota) %*% F_t[,t] + Eta_it_1[i,t]
+      X_it_2 <- mu2 + c2 * t(Lambda_i[,i]) %*% F_t[,t] + 
+        t(iota) %*% Lambda_i[,i] + t(iota) %*% F_t[,t] + Eta_it_2[i,t]
+      Y_it <- X_it_1*beta[1] + X_it_2*beta[2] + mu + 
+        x_i[i]*gamma + w_t[t]*delta + t(Lambda_i[,i])%*%F_t[,t] + Eps_it[i,t]
+      
+        
+      df$x_it_1[(i-1)*T_ + t] <- X_it_1
+      df$x_it_2[(i-1)*T_ + t] <- X_it_2
+      df$y_it[(i-1)*T_ + t] <- Y_it
+    }
+  }
+  
+  return(list(df=df, F_=F_t, Lambda=Lambda_i))
+}
+
+#####################
+####   Method    ####
+#####################
+
 OLS_FE <- function(X, Y){
   if(length(dim(X[[1]])) != 2){
     warning("X_i is not 2d array")
@@ -105,25 +151,65 @@ OLS_FE <- function(X, Y){
 
 OLS_FE2 <- function(df){
   data <- pdata.frame(df,index=c("i","t"))
-  result <- plm(y_it ~ x0 + x_it, data=data,
-                effect = "twoways",model="within")
+  result <- plm(y_it ~ x0+x_it, data=data,
+                effect = "individual",model="within")
   return(result$coefficients)
 }
 
+least_squares <- function(df, T_, N, K=2, r=2){
+  # step1: define F
+  F_ <- diag(sqrt(T_), nrow = T_, ncol = r)
+  # step2: caculate Beta_hat(F)
+  caculate_beta_hat_F <- function(F_){
+    M_F <- diag(1, nrow = T_) - (F_ %*% t(F_)) / T_
+    A <- matrix(0, nrow=K, ncol=K)
+    B <- matrix(0, nrow=K, ncol=1)
+    for(i in 1:N){
+      X_i <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
+      Y_i <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
+      A <- A + t(X_i) %*% M_F %*% X_i
+      B <- B + t(X_i) %*% M_F %*% Y_i
+    }
+    beta_hat_F <- solve(A) %*% B
+    return(beta_hat_F)
+  }
+  beta_hat_F <- caculate_beta_hat_F(F_)
+  # step3: caculate F_hat
+  WWT <- matrix(0, nrow=T_, ncol=T_)
+  for(i in 1:N){
+    X_i <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
+    Y_i <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
+    W_i <- (Y_i - X_i %*% beta_hat_F)
+    WWT <- WWT + W_i %*% t(W_i)
+  }
+  eig <- eigen(WWT)
+  F_hat <- eig$vectors[,which.max(eig$values)]
+  # step4: caculate Beta_hat(F_hat)
+  beta_hat_F_hat <- caculate_beta_hat_F(F_hat)
+  return(beta_hat_F_hat)
+}
+
+
 ##### test #####
-df <- DGP2(5, 7)
+df <- DGP2(10, 100)
 OLS_FE2(df)
 
 dgp = DGP(K = 3,
           T_ = 3,
-          N = 400,
-          beta_i = c(1,2,3))
+          N = 400,       beta_i = c(1,2,3))
 OLS_FE(dgp$X, dgp$Y)
 plm(y_it ~ x1+x2+x3, data=dgp$df,
-    effect = "twoways",model="within")$coefficients
+    effect = "individual",model="within")$coefficients
 
+# dgp3 <- DGP3(30, 400)
+# least_squares(dgp3$df, 30, 400)
+# plm(y_it ~ x_it_1+x_it_2, data=dgp3$df,
+#     effect = "twoways",model="within")$coefficients
+   
 
-##### simulation #####
+###########################
+####   Visualization   ####
+###########################
 
 sim <- function(K, beta_true, all_n, all_T, nsims){
   beta_hat_1 = array(NA, dim = c(length(all_n), length(all_T), nsims))
