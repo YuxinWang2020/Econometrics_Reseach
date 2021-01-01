@@ -1,8 +1,10 @@
 rm(list = ls())
 if (!require("MASS")) install.packages("MASS")
 if (!require("ggplot2")) install.packages("ggplot2")
-library(purrr)
-library(cowplot)
+if (!require("akima")) install.packages("akima")
+if (!require("plotly")) install.packages("plotly")
+if (!require("reshape2")) install.packages("reshape2")
+# if (!require("cowplot")) install.packages("cowplot")
 set.seed(100)
 
 
@@ -72,12 +74,13 @@ OLS_FE(dgp$X, dgp$Y)
 
 ##### simulation #####
 
-
-# 
 sim <- function(K, beta_true, all_n, all_T, nsims){
   beta_hat_1 = array(NA, dim = c(length(all_n), length(all_T), nsims))
-  mean_beta_hat_1 = array(NA, dim = c(length(all_n), length(all_T)))
-  var_beta_hat_1 = array(NA, dim = c(length(all_n), length(all_T)))
+  summary_beta_hat_1 = data.frame(T_ = rep(all_T, times = length(all_n)),
+                               N = rep(all_n, each = length(all_T)),
+                               mean = NA,
+                               var = NA,
+                               bias = NA)
   for(i in 1:length(all_n)){
     N = all_n[i]
     for(j in 1:length(all_T)){
@@ -95,40 +98,51 @@ sim <- function(K, beta_true, all_n, all_T, nsims){
         beta_hat = result$beta_hat
         beta_hat_1[i, j, h] = beta_hat[1]
       }
-      mean_beta_hat_1[i,j] = mean(beta_hat_1[i, j,])
-      var_beta_hat_1[i,j] = var(beta_hat_1[i, j,])
+      summary_beta_hat_1$mean[(i-1)*length(all_T)+j] = mean(beta_hat_1[i, j,])
+      summary_beta_hat_1$var[(i-1)*length(all_T)+j] = var(beta_hat_1[i, j,])
+      summary_beta_hat_1$bias[(i-1)*length(all_T)+j] =
+        abs(summary_beta_hat_1$mean[(i-1)*length(all_T)+j] - beta_true[1]) / beta_true[1]
     }
   }
-  return(list(beta_hat_1=beta_hat_1, mean_beta_hat_1=mean_beta_hat_1, var_beta_hat_1=var_beta_hat_1))
+  return(list(beta_hat_1=beta_hat_1, summary_beta_hat_1=summary_beta_hat_1))
 }
 
 ##### sim1 #####
-sim1 <- sim(K = 3, beta_true = c(1:3), all_n = c(1000, 2000, 3000), all_T = c(3), nsims = 100)
+all_n = c(1000, 2000, 3000)
+nsims=100
+beta_true = c(1:3)
+sim1 <- sim(K = 3, beta_true = beta_true, all_n = all_n, all_T = c(3), nsims = nsims)
 beta_hat_1 = sim1$beta_hat_1
-beta_true_1 = 1
-
-# generate point and box plot for every data size
-point_plot.list <- list()
-box_plot.list <- list()
-for(i in 1:length(all_n)){
-  N <- all_n[i]
-  plot.heigth <- max(beta_true_1 - min(beta_hat_1), max(beta_hat_1) - beta_true_1)
-  point_plot.list[[i]] <- ggplot() +
-    geom_point(aes(y = beta_hat_1[i,1,], x = c(1:nsims))) +
-    geom_hline(yintercept = beta_true_1, color = I("black")) +
-    ylim(beta_true_1 - plot.heigth, beta_true_1 + plot.heigth) +
-    labs(subtitle = paste0("sample size = ", N), x = "iteration", y = "beta_hat_1")
-  
-  box_plot.list[[i]] <- ggplot() +
-    geom_boxplot(aes(y = beta_hat_1[i,1,])) +
-    ylim(min(beta_hat_1), max(beta_hat_1)) +
-    labs(subtitle = paste0("sample size = ", N), x = NULL, y = "beta_hat_1")
-}
-
-point_plot <- plot_grid(plotlist = point_plot.list)
-box_plot <- plot_grid(plotlist = box_plot.list)
+beta_true_1 = beta_true[1]
+beta_hat_1_df = data.frame(t(beta_hat_1[,1,]))
+colnames(beta_hat_1_df) <- all_n
+beta_hat_1_df <- melt(beta_hat_1_df, measure.vars=colnames(beta_hat_1_df), variable.name = "N")
+# generate point and box plot for every N
+plot.heigth <- max(beta_true_1 - min(beta_hat_1_df$value), max(beta_hat_1_df$value) - beta_true_1)
+point_plot <- ggplot(data = beta_hat_1_df) +
+  geom_point(aes(y = value, x = c(1:(nsims*length(all_n))), color = N, shape = N)) +
+  geom_hline(yintercept = beta_true_1, color = I("black")) +
+  ylim(beta_true_1 - plot.heigth, beta_true_1 + plot.heigth) +
+  labs(title = "point plot for every N", x = "iteration", y = "beta_hat_1") +
+  theme(axis.text.x = element_blank())
 print(point_plot)
+
+box_plot <- ggplot(data = beta_hat_1_df) +
+  geom_boxplot(aes(y = value, x = N, color = N)) +
+  ylim(min(beta_hat_1_df$value), max(beta_hat_1_df$value)) +
+  labs(title = "box plot for every N", y = "beta_hat_1")
 print(box_plot)
 
 ##### sim2 #####
+sim2 <- sim(K = 3, beta_true = c(1:3), all_n = seq(1000, 10000, 1000), all_T = seq(3,30,3), nsims = 1)
+beta_hat_1 = sim2$beta_hat_1
+beta_true_1 = 1
+summary_beta_hat_1 = sim2$summary_beta_hat_1
 
+im <- with(summary_beta_hat_1, interp(T_,N,bias))
+with(im,image(x,y,z, xlab = "T_", ylab = "N"))
+
+plot_ly(x=im$x, y=im$y, z=im$z, type="surface") %>% add_surface() %>% layout(scene = list(
+    xaxis = list(title = 'T'),
+    yaxis = list(title = 'N'),
+    zaxis = list(title = 'bias')))
