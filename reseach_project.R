@@ -161,52 +161,61 @@ OLS_FE2 <- function(df, K){
   return(result$coefficients)
 }
 
-least_squares <- function(df, K=2, r=2, tolerance=0.0001){
+least_squares <- function(df, K=2, r=2, tolerance=0.001){
   # Initialize
   N = length(unique(df$i))
   T_ = length(unique(df$t))
-  # step1: define F0
-  F_0 <- diag(sqrt(T_), nrow = T_, ncol = r)
-  # step2: caculate Beta_hat(F)
-  caculate_beta_hat_F <- function(F_){
-    M_F <- diag(1, nrow = T_) - (F_ %*% t(F_)) / T_
-    A <- matrix(0, nrow=K, ncol=K)
-    B <- matrix(0, nrow=K, ncol=1)
-    for(i in 1:N){
-      X_i <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
-      Y_i <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
-      A <- A + t(X_i) %*% M_F %*% X_i
-      B <- B + t(X_i) %*% M_F %*% Y_i
-    }
-    beta_hat_F <- solve(A) %*% B
-    return(beta_hat_F)
-  }
-  # step3: caculate F_hat
-  caculate_F_hat <- function(beta_hat_F){
+  # define funtion to caculate F_hat, dim of F_hat is (T_, r)
+  caculate_F_hat <- function(beta_hat){
     WWT <- matrix(0, nrow=T_, ncol=T_)
     for(i in 1:N){
       X_i <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
       Y_i <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
-      W_i <- (Y_i - X_i %*% beta_hat_F)
+      W_i <- (Y_i - X_i %*% beta_hat)
       WWT <- WWT + W_i %*% t(W_i)
     }
     eig <- eigen(WWT)
     F_hat <- sqrt(T_)*eig$vectors[,order(eig$values, decreasing = T)[1:r]]
     return(F_hat)
   }
-  # step4: caculate Beta_hat(F_hat) by iterations
-  e <- Inf
-  beta_hat_F0 <- caculate_beta_hat_F(F_0)
-  beta_hat_list <- list(beta_hat_F0)
-  while (e > tolerance) {
-    F_hat <- caculate_F_hat(beta_hat_F0)
-    beta_hat_F_hat <- caculate_beta_hat_F(F_hat)
-    
-    beta_hat_list[[length(beta_hat_list)+1]] <- beta_hat_F_hat
-    e <- norm(beta_hat_F_hat - beta_hat_F0, type = "F")
-    beta_hat_F0 <- beta_hat_F_hat
+  # define funtion to caculate Lambda_hat, dim of Lambda_hat is (r, N)
+  caculate_Lambda_hat <- function(beta_hat, F_hat){
+    Lambda_hat <- matrix(NA, nrow = r, ncol = N)
+    for(i in 1:N){
+      X_i <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
+      Y_i <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
+      Lambda_hat[,i] <- t(F_hat) %*% (Y_i - X_i %*% beta_hat) / T_
+    }
+    return(Lambda_hat)
   }
-  return(list(beta_hat=beta_hat_F_hat, beta_hat_list=beta_hat_list))
+  # define funtion to caculate Beta_hat
+  caculate_beta_hat <- function(F_,Lambda){
+    A <- matrix(0, nrow=K, ncol=K)
+    B <- matrix(0, nrow=K, ncol=1)
+    for(i in 1:N){
+      X_i <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
+      Y_i <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
+      A <- A + t(X_i) %*% X_i
+      B <- B + t(X_i) %*% (Y_i - F_ %*% Lambda[,i])
+    }
+    beta_hat <- solve(A) %*% B
+    return(beta_hat)
+  }
+  # caculate Beta_hat by iterations
+  beta_hat_0 <- plm(y_it ~ x_it_1+x_it_2, data=df, 
+                    model="pooling")$coefficients[2:(1+K)] %>% as.matrix()
+  beta_hat_list <- list(beta_hat_0)
+  e <- Inf
+  while (e > tolerance) {
+    F_hat <- caculate_F_hat(beta_hat_0)
+    Lambda_hat <- caculate_Lambda_hat(beta_hat_0, F_hat)
+    beta_hat <- caculate_beta_hat(F_hat, Lambda_hat)
+    
+    beta_hat_list[[length(beta_hat_list)+1]] <- beta_hat
+    e <- norm(beta_hat - beta_hat_0, type = "F")
+    beta_hat_0 <- beta_hat
+  }
+  return(list(beta_hat=beta_hat, beta_hat_list=beta_hat_list))
 }
 
 
@@ -219,16 +228,17 @@ dgp1 = DGP1(K = 3,
             N = 400,  beta = c(1,2,3))
 OLS_FE(dgp1$df, K=3)
 OLS_FE2(dgp1$df, K=3)
-T_ <- 10
+T_ <- 100
 N <- 100
 dgp3 <- DGP3(T_,N,beta=c(1,3))
 df <-  dgp3$df
 X_list <- dgp3$X_list
 Y_list <- dgp3$Y_list
 
-least_squares(df,r=2)$beta_hat
-# plm(y_it ~ x_it_1+x_it_2, data=df,
-#     effect = "twoways",model="within")$coefficients
+ls <- least_squares(df,r=4)
+ls$beta_hat
+ls$beta_hat_list
+
 
 
 ###########################
