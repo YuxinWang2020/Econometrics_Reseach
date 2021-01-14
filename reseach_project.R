@@ -1,4 +1,4 @@
-# improve DGP3 & seperate least square function #
+# Result Analysis#
 rm(list = ls())
 
 if (!require("MASS")) install.packages("MASS")
@@ -77,7 +77,7 @@ DGP2 <- function(T_, N, beta=c(1,2)){
   return(list(df=df))
 }
 
-DGP3 <- function(T_, N, beta_true=c(1, 3)){
+DGP3 <- function(T_, N, beta_true){
   # Set parameters
   r<-2
   K<-3
@@ -125,7 +125,6 @@ DGP3 <- function(T_, N, beta_true=c(1, 3)){
     X_list[[i]] <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
     Y_list[[i]] <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
   }
-  
   return(list(df=df, X_list=X_list, Y_list=Y_list))
 }
 
@@ -157,7 +156,7 @@ OLS_FE <- function(df, K){
   return(list(beta_hat = beta_hat_fe))
 }
 
-# Alternatively, we can use plm package for estimation. 
+# Alternatively, we can use plm package for estimation
 OLS_FE2 <- function(df, K){
   data <- pdata.frame(df,index=c("i","t"))
   formulate <- reformulate(response = c("y_it"), termlabels =
@@ -173,7 +172,7 @@ OLS_FE2 <- function(df, K){
 #####  Interacctive Fixed Effect Methods  #####
 
 ### Least Squares Model ###
-#Step 1:Define funtion to caculate F_hat, dim of F_hat is (T_, r)
+#Step 1:define funtion to caculate F_hat, dim of F_hat is (T_, r)
 caculate_F_hat <- function(X_list, Y_list, beta_hat, r){
   N = length(X_list)
   T_ = dim(X_list[[1]])[1]
@@ -191,7 +190,7 @@ caculate_F_hat <- function(X_list, Y_list, beta_hat, r){
   return(F_hat)
 }
 
-#Step 2:Define funtion to caculate Lambda_hat, dim of Lambda_hat is (r, N)
+#Step 2:define funtion to caculate Lambda_hat, dim of Lambda_hat is (r, N)
 caculate_Lambda_hat <- function(X_list, Y_list, beta_hat, F_hat, r){
   N = length(X_list)
   T_ = dim(X_list[[1]])[1]
@@ -206,7 +205,7 @@ caculate_Lambda_hat <- function(X_list, Y_list, beta_hat, F_hat, r){
   return(Lambda_hat)
 }
 
-#Step 3:Define funtion to caculate Beta_hat
+#Step 3:define funtion to caculate Beta_hat
 caculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
   N = length(X_list)
   T_ = dim(X_list[[1]])[1]
@@ -224,10 +223,10 @@ caculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
   return(beta_hat)
 }
 
-#Step 5:Caculate Beta_hat by iterations
-least_squares <- function(X_list, Y_list, tolerance=0.001, beta_hat_0 = c(5,1,3)){
+#Step 5:caculate Beta_hat by iterations
+least_squares <- function(X_list, Y_list, tolerance, beta_hat_0){
   r=4
-  # beta_hat_0 <- plm(y_it ~ x_it_1+x_it_2, data=df, model="pooling")$coefficients[2:(1+K)] %>% as.matrix()
+
   beta_hat_list <- list(beta_hat_0)
   e <- Inf
   while (e > tolerance) {
@@ -242,6 +241,23 @@ least_squares <- function(X_list, Y_list, tolerance=0.001, beta_hat_0 = c(5,1,3)
   return(list(beta_hat=beta_hat, beta_hat_list=beta_hat_list))
 }
 
+##########################
+#####     Results    #####
+##########################
+
+#####  Compute mean squared error  #####
+
+#input: list of estimations and real parameters
+#output: mean squared error
+mse <- function(est_list, real_para){
+  mse <- 0
+  N <- length(est_list) 
+  for (i in 1:N){
+    mse <- mse + norm(est_list[[i]]-real_para, type="2")^2
+  }
+  mse <- 1/n*mse
+  return(mse)
+}
 
 ##### test #####
 dgp2 <- DGP2(10, 100)
@@ -252,14 +268,35 @@ dgp1 = DGP1(K = 3,
             N = 400,  beta = c(1,2,3))
 OLS_FE(dgp1$df, K=3)
 OLS_FE2(dgp1$df, K=3)
-T_ <- 1000
-N <- 1000
-dgp3 <- DGP3(T_,N)
-df <-  dgp3$df
-X_list <- dgp3$X_list
-Y_list <- dgp3$Y_list
 
-ls <- least_squares(X_list, Y_list)
+# Interactive fixed effect
+T_ <- 1000
+N <- 100
+tol <-0.005
+
+#List that stores the estimate of beta_hat in each regression
+beta_hat_list <- list()
+
+#number of regressions 
+n_reg <- 10
+
+for (i in 1:n_reg){
+  #generate data
+  dgp3 <- DGP3(T_,N, c(1,3))
+  df <-  dgp3$df
+  beta_hat_0 <- plm(y_it ~ x_it_1+x_it_2, data=df, model="pooling")$coefficients %>% as.matrix()
+  
+  #run the regression
+  X_list <- dgp3$X_list
+  Y_list <- dgp3$Y_list
+  ls <- least_squares(X_list, Y_list, tol, beta_hat_0)
+  beta_hat_list[[i]] <- ls$beta_hat
+}
+
+#compute the mse
+ls_mse <- mse(beta_hat_list, c(5,1,3))
+
+
 ls$beta_hat
 ls$beta_hat_list
 
