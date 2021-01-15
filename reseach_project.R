@@ -1,4 +1,4 @@
-# generate table #
+# add sde #
 rm(list = ls())
 
 if (!require("MASS")) install.packages("MASS")
@@ -165,7 +165,7 @@ OLS_FE <- function(df){
   return(list(beta_hat = beta_hat_fe))
 }
 
-# alternatively, we can use plm package for estimation
+# alternatively, we can use plm package for FE estimation
 OLS_FE2 <- function(df){
   K <- ncol(df) - 3
   data <- pdata.frame(df,index=c("i","t"))
@@ -204,11 +204,11 @@ caculate_Lambda_hat <- function(X_list, Y_list, beta_hat, F_hat, r){
   T_ <- dim(X_list[[1]])[1]
   K <- dim(X_list[[1]])[2]
   
-  Lambda_hat <- matrix(NA, nrow = r, ncol = N)
+  Lambda_hat <- matrix(NA, nrow = N, ncol = r)
   for(i in 1:N){
     X_i <- X_list[[i]]
     Y_i <- Y_list[[i]]
-    Lambda_hat[,i] <- t(F_hat) %*% (Y_i - X_i %*% beta_hat) / T_
+    Lambda_hat[i,] <- t(F_hat) %*% (Y_i - X_i %*% beta_hat) / T_
   }
   return(Lambda_hat)
 }
@@ -225,7 +225,7 @@ caculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
     X_i <- X_list[[i]]
     Y_i <- Y_list[[i]]
     A <- A + t(X_i) %*% X_i
-    B <- B + t(X_i) %*% (Y_i - F_ %*% Lambda[,i])
+    B <- B + t(X_i) %*% (Y_i - F_ %*% Lambda[i,])
   }
   beta_hat <- solve(A) %*% B
   return(beta_hat)
@@ -246,13 +246,15 @@ least_squares <- function(X_list, Y_list, df, tolerance){
     F_hat <- caculate_F_hat(X_list, Y_list, beta_hat_0, r)
     Lambda_hat <- caculate_Lambda_hat(X_list, Y_list, beta_hat_0, F_hat, r)
     beta_hat <- caculate_beta_hat(X_list, Y_list, F_hat, Lambda_hat)
-    
     beta_hat_list[[length(beta_hat_list)+1]] <- beta_hat
     e <- norm(beta_hat - beta_hat_0, type = "F")
     beta_hat_0 <- beta_hat
   }
-  return(list(beta_hat=beta_hat, beta_hat_list=beta_hat_list))
+  
+  
+  return(list(beta_hat=beta_hat, beta_hat_list=beta_hat_list, F_hat=F_hat, Lambda_hat=Lambda_hat))
 }
+
 
 ##########################
 #####     Result     #####
@@ -293,7 +295,6 @@ sim <- function(dgp, method, beta_true, all_N, all_T, nsims){
 }
 
 #####  Compute mean squared error  #####
-
 #input: list of estimations and real parameters
 #output: mean squared error
 mse <- function(est_list, real_para){
@@ -304,6 +305,65 @@ mse <- function(est_list, real_para){
   }
   mse <- 1/N * mse
   return(mse)
+}
+
+#####  Compute standard error  #####
+#Page 1240, define funtion to caculate a_ik
+caculate_a <- function(N, Lambda_hat){
+  A <- solve(crossprod(Lambda_hat, Lambda_hat) / N)
+  a <- matrix(NA, nrow = N, ncol = N)
+  for(i in 1:N){
+    for(k in 1:N){
+      a[i,k] <- t(Lambda_hat[i,]) %*% A %*% Lambda_hat[k,]
+    }
+  }
+  return(a)
+}
+
+#Page 1241, define funtion to caculate Zi
+caculate_Z <- function(X_list, N, M, a){
+  Z_list <- list()
+  for(i in 1:N){
+    # dims of Z_i is c(T, K)
+    Z_list[[i]] <- M %*% X_list[[i]] - 1/N * M %*% X_list[[i]] * sum(a[i,])
+  }
+  return(Z_list)
+}
+
+#Page 1246 & 1252, define funtion to caculate D0 and D1
+caculate_D <- function(X_list, Y_list, N, T_, K, beta_hat, F_hat, Lambda_hat, Z){
+  sita_square <- rep(0, N)
+  for(i in 1:N){
+    for(t in 1:T_){
+      sita_square[i]  <- sita_square[i] + 1/T_ * (Y_list[[i]][t] - crossprod(beta_hat, X_list[[i]][t,])
+                                                 - crossprod(Lambda_hat[i,], F_hat[t,])) ^ 2
+    }
+  }
+  
+  D0 <- matrix(0, nrow = K, ncol = K)
+  D1 <- matrix(0, nrow = K, ncol = K)
+  for(i in 1:N){
+    for(t in 1:T_){
+      A <- 1/(N*T_) * tcrossprod(Z[[i]][t,], Z[[i]][t,])
+      D0 <- D0 + A
+      D1 <- D1 + sita_square[i] * A
+    }
+  }
+  return(list(D0=D0, D1=D1))
+}
+
+#Page 1246, define funtion to caculate covariance matrix of beta_hat
+sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
+  N <- length(X_list)
+  T_ <- dim(X_list[[1]])[1]
+  K <- dim(X_list[[1]])[2]
+  
+  M <- diag(1, nrow = T_) - tcrossprod(F_hat, F_hat) / T_
+  a <- caculate_a(N, Lambda_hat)
+  Z <- caculate_Z(X_list, N, M, a)
+  D <- caculate_D(X_list, Y_list, N, T_, K, beta_hat, F_hat, Lambda_hat, Z)
+  sde <- solve(D$D0) %*% D$D1 %*% solve(t(D$D0))
+  return(sde)
 }
 
 #####  Statistics  #####
@@ -347,8 +407,8 @@ OLS_FE(dgp1$df)$beta_hat
 OLS_FE2(dgp1$df)$beta_hat
 all.equal(OLS_FE(dgp1$df)$beta_hat, OLS_FE2(dgp1$df)$beta_hat)
 
-T_ <- 1000
-N <- 1000
+T_ <- 100
+N <- 100
 tol <-0.005
 beta_true <- c(5,1,3)
 dgp3 <- DGP3(T_,N,beta_true)
@@ -357,9 +417,13 @@ X_list <- dgp3$X_list
 Y_list <- dgp3$Y_list
 
 ls <- least_squares(X_list, Y_list, df, tol)
-ls$beta_hat
+(beta_hat <- ls$beta_hat)
 ls$beta_hat_list
-ls_mse <- mse(ls$beta_hat_list, c(5,1,3))
+(ls_mse <- mse(ls$beta_hat_list, c(5,1,3)))
+
+F_hat <- ls$F_hat
+Lambda_hat <- ls$Lambda_hat
+(ls_sde <- sde(X_list, Y_list, beta_hat, F_hat, Lambda_hat))
 
 ##### Generate table #####
 all_N <- c(100)
