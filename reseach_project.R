@@ -1,4 +1,4 @@
-# add sde #
+# K=5 #
 rm(list = ls())
 
 if (!require("MASS")) install.packages("MASS")
@@ -85,13 +85,13 @@ DGP2 <- function(T_, N, beta_true){
   return(list(df=df, X_list=X_list, Y_list=Y_list))
 }
 
-DGP3 <- function(T_, N, beta_true){
+DGP3 <- function(T_, N, beta_true=c(1,3,5,2,4)){
   # Set parameters
   r<-2
-  K<-3
-  mu <- beta_true[1]
-  gamma <- 2
-  delta <- 4
+  K<-5
+  mu <- beta_true[3]
+  gamma <- beta_true[4]
+  delta <- beta_true[5]
   iota <- rep(1, r)
   mu1 <- mu2 <- c1 <- c2 <- 1
   # Generate variables
@@ -99,7 +99,7 @@ DGP3 <- function(T_, N, beta_true){
   Lambda_i <- matrix(rnorm(n = r*N, mean = 0, sd = 1), nrow=r, ncol=N)
   Eta_it_1 <- matrix(rnorm(n = T_*N, mean = 0, sd = 1), nrow=N, ncol=T_)
   Eta_it_2 <- matrix(rnorm(n = T_*N, mean = 0, sd = 1), nrow=N, ncol=T_)
-  Eps_it <- matrix(rnorm(n = T_*N, mean = 0, sd = 4), nrow=N, ncol=T_)
+  Eps_it <- matrix(rnorm(n = T_*N, mean = 0, sd = 2), nrow=N, ncol=T_)
   e_i <- rnorm(n = N, mean = 0, sd = 1)
   eta_t <- rnorm(n = T_, mean = 0, sd = 1)
   # Calculate intermediate variables
@@ -111,21 +111,24 @@ DGP3 <- function(T_, N, beta_true){
   iota_F_it <- rep(1, N) %*% iota_F_t
   x_i <- iota_Lambda_i + e_i
   w_t <- iota_F_t + eta_t
-  gamma_x_it <- gamma * x_i %*% rep(1, T_)
-  delta_w_it <- delta * rep(1, N) %*% w_t
   Lambda_F_it <- crossprod(Lambda_i, F_t)
   # Simulate data
   X_it_1 <- mu1 + c1 * Lambda_F_it + iota_Lambda_it + iota_F_it + Eta_it_1
   X_it_2 <- mu2 + c2 * Lambda_F_it + iota_Lambda_it + iota_F_it + Eta_it_2
-  Y_it <- beta_true[2]*X_it_1 + beta_true[3]*X_it_2 + mu + gamma_x_it + delta_w_it + 
+  X_it_3 <- matrix(1, nrow=N, ncol=T_)
+  X_it_4 <- x_i %*% rep(1, T_)
+  X_it_5 <- rep(1, N) %*% w_t
+  Y_it <- beta_true[1]*X_it_1 + beta_true[2]*X_it_2 + mu*X_it_3 + gamma*X_it_4 + delta*X_it_5 + 
     Lambda_F_it + Eps_it
   # Save all results to data frame
   df <- data.frame(i = rep(c(1:N), each = T_),
                    t = rep(c(1:T_), times = N),
                    y_it = as.vector(t(Y_it)),
-                   x_it_0 = 1,
                    x_it_1 = as.vector(t(X_it_1)),
-                   x_it_2 = as.vector(t(X_it_2)))
+                   x_it_2 = as.vector(t(X_it_2)),
+                   x_it_3 = as.vector(t(X_it_3)),
+                   x_it_4 = as.vector(t(X_it_4)),
+                   x_it_5 = as.vector(t(X_it_5)))
   # Save results to lists
   X_list <- list()
   Y_list <- list()
@@ -237,7 +240,7 @@ least_squares <- function(X_list, Y_list, df, tolerance){
   r <- 4
   K <- dim(X_list[[1]])[2]
   formulate <- reformulate(response = c("y_it"), termlabels =
-                             paste0("x_it_",c(0:(K-1))) %>% paste(collapse = " + "))
+                             paste0("x_it_",c(1:K)) %>% paste(collapse = " + "))
   beta_hat_0 <- plm(formulate, data=df, model="pooling")$coefficients %>% as.matrix()
   
   beta_hat_list <- list(beta_hat_0)
@@ -366,6 +369,19 @@ sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
   return(sde)
 }
 
+mean_value <- function(est_list){
+  #Input: list of estimations
+  #Output: vector of mean estimation, denoted by m
+  N <- length(est_list) 
+  k <- length(est_list[[1]])
+  m <- rep(0, k)
+  for (j in 1:k){
+    for (i in 1:N){
+      m[j] <- m[j]+est_list[[i]][j]
+    }
+  }
+  return (1/N*m)
+}
 #####  Statistics  #####
 statistics <- function(df_beta_hat, beta_true, all_N, all_T, nsims){
   # Initialize
@@ -385,10 +401,10 @@ statistics <- function(df_beta_hat, beta_true, all_N, all_T, nsims){
       T_ <- all_T[j]
       row_range <- c((count_df_statistic*nsims-nsims+1) : (count_df_statistic*nsims)) # rows range of beta_hat for N and T_
       
-      df_statistic$mean_x1[count_df_statistic] <- mean(df_beta_hat$beta.2[row_range])
-      df_statistic$var_x1[count_df_statistic] <- var(df_beta_hat$beta.2[row_range])
+      df_statistic$mean_x1[count_df_statistic] <- mean(df_beta_hat$beta.1[row_range])
+      df_statistic$var_x1[count_df_statistic] <- var(df_beta_hat$beta.1[row_range])
       df_statistic$bias_x1[count_df_statistic] <- 
-        abs(df_statistic$mean_x1[count_df_statistic] - beta_true[2]) / beta_true[2]
+        abs(df_statistic$mean_x1[count_df_statistic] - beta_true[1]) / beta_true[1]
       beta_hat_list <- as.list(as.data.frame(t(df_beta_hat[row_range, 4:(3+K)])))
       df_statistic$mse[count_df_statistic] <- mse(beta_hat_list, beta_true)
       count_df_statistic <- count_df_statistic + 1
@@ -407,29 +423,36 @@ OLS_FE(dgp1$df)$beta_hat
 OLS_FE2(dgp1$df)$beta_hat
 all.equal(OLS_FE(dgp1$df)$beta_hat, OLS_FE2(dgp1$df)$beta_hat)
 
-T_ <- 100
+T_ <- 50
 N <- 100
-tol <-0.005
-beta_true <- c(5,1,3)
-dgp3 <- DGP3(T_,N,beta_true)
-df <-  dgp3$df
-X_list <- dgp3$X_list
-Y_list <- dgp3$Y_list
+tol <-0.0001
+beta_true <- c(1,3,5,2,4)
 
-ls <- least_squares(X_list, Y_list, df, tol)
-(beta_hat <- ls$beta_hat)
-ls$beta_hat_list
-(ls_mse <- mse(ls$beta_hat_list, c(5,1,3)))
+beta_hat_list <- list() #List that stores the estimate of beta_hat in each regression
+n_reg <- 10 #number of regressions
+for (i in 1:n_reg){
+  dgp<-DGP3(T_, N, beta_true)
+  X <- dgp$X
+  Y <- dgp$Y
+  df<-dgp$df
+  X_list <- dgp$X_list
+  Y_list <- dgp$Y_list
+  ls <- least_squares(X_list, Y_list, df, tol)
+  beta_hat_list[[i]] <- ls$beta_hat
+  
+  F_hat <- ls$F_hat
+  Lambda_hat <- ls$Lambda_hat
+  ls_sde <- sde(X_list, Y_list, ls$beta_hat, F_hat, Lambda_hat)
+}
+MSE <- mse(beta_hat_list, beta_true)
+(MEAN <- mean_value(beta_hat_list))
 
-F_hat <- ls$F_hat
-Lambda_hat <- ls$Lambda_hat
-(ls_sde <- sde(X_list, Y_list, beta_hat, F_hat, Lambda_hat))
 
 ##### Generate table #####
 all_N <- c(100)
 all_T <- c(10,20,50,100)
 nsims <- 100
-beta_true <- c(5,1,3)
+beta_true <- c(1,3,5,2,4)
 sim1 <- sim(dgps$DGP3, methods$least_squares, beta_true, all_N, all_T, nsims)
 stat1 <- statistics(sim1$df_beta_hat, beta_true, all_N, all_T, nsims)
 stat1$df_statistic
