@@ -7,40 +7,44 @@ if (!require("akima")) install.packages("akima")
 if (!require("plotly")) install.packages("plotly")
 if (!require("reshape2")) install.packages("reshape2")
 if (!require("plm")) install.packages("plm")
+# if (!require("RSpectra")) install.packages("RSpectra")
+# if (!require("psych")) install.packages("psych")
+# library(RSpectra)
+# library(psych)
 
-set.seed(100)
-  
+set.seed(123)
+
 #######################
 #####     DGP     #####
 #######################
 
 DGP1 <- function(T_, N, beta_true){
   # Set parameters
-  K <- 3
+  p <- 3
   range_x <- c(0,1)
   alpha_i <- 1
   mu_u_i <- rep(0, T_)
   sigma_u_i <- diag(rep(1, T_))
   # Simulate data 
-  X <- lapply(as.list(1:N), function(i) array(runif(K*T_,range_x[1],range_x[2]), dim = c(T_, K)))
+  X <- lapply(as.list(1:N), function(i) array(runif(p*T_,range_x[1],range_x[2]), dim = c(T_, p)))
   U <- lapply(as.list(1:N), function(i) mvrnorm(n = 1, mu = mu_u_i, Sigma = sigma_u_i))
   Y <- mapply(function(X_i, u_i) alpha_i + X_i %*% beta_true + u_i, X, U, SIMPLIFY=F)
-     # Alternatively, we can write in the following way:
-     # X_i <- array(runif(K*T_,range_x[1],range_x[2]), dim = c(T_, K))
-     # u_i <- mvrnorm(n = 1, mu = mu_u_i, Sigma = sigma_u_i)
-     # Y_i <- alpha_i + X_i %*% beta_true + u_i
+  # Alternatively, we can write in the following way:
+  # X_i <- array(runif(p*T_,range_x[1],range_x[2]), dim = c(T_, p))
+  # u_i <- mvrnorm(n = 1, mu = mu_u_i, Sigma = sigma_u_i)
+  # Y_i <- alpha_i + X_i %*% beta_true + u_i
   # Save all results to data frame
   df <- data.frame(i = rep(c(1:N), each = T_),
                    t = rep(c(1:T_), times = N),
-                   y_it = NA) %>% cbind(matrix(NA,nrow=N*T_,ncol=K))
-  colnames(df)[4:(3+K)] <- paste0("x_it_",c(0:(K-1)))
+                   y_it = NA) %>% cbind(matrix(NA,nrow=N*T_,ncol=p))
+  colnames(df)[4:(3+p)] <- paste0("x_it_",c(0:(p-1)))
   # Loop over N & T_
   for(i in 1:N){
     X_i <- X[[i]]
     u_i <- U[[i]]
     Y_i <- Y[[i]]
     for(t in 1:T_){
-      df[(i-1)*T_ + t, 4:(3+K)] <- X_i[t,]
+      df[(i-1)*T_ + t, 4:(3+p)] <- X_i[t,]
       df$y_it[(i-1)*T_ + t] <- Y_i[t]
     }
   }
@@ -77,18 +81,17 @@ DGP2 <- function(T_, N, beta_true){
   # Save results to lists
   X_list <- list()
   Y_list <- list()
-  K <- 2
+  p <- 2
   for(i in 1:N){
-    X_list[[i]] <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
+    X_list[[i]] <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+p)])
     Y_list[[i]] <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
   }
   return(list(df=df, X_list=X_list, Y_list=Y_list))
 }
 
-DGP3 <- function(T_, N, beta_true=c(1,3,5,2,4)){
+DGP3 <- function(T_, N, beta_true=c(1,3,5,2,4), p=5){
   # Set parameters
   r<-2
-  K<-5
   mu <- beta_true[3]
   gamma <- beta_true[4]
   delta <- beta_true[5]
@@ -121,19 +124,20 @@ DGP3 <- function(T_, N, beta_true=c(1,3,5,2,4)){
   Y_it <- beta_true[1]*X_it_1 + beta_true[2]*X_it_2 + mu*X_it_3 + gamma*X_it_4 + delta*X_it_5 + 
     Lambda_F_it + Eps_it
   # Save all results to data frame
+  X_df <- data.frame(x_it_1 = as.vector(t(X_it_1)),
+                     x_it_2 = as.vector(t(X_it_2)),
+                     x_it_3 = as.vector(t(X_it_3)),
+                     x_it_4 = as.vector(t(X_it_4)),
+                     x_it_5 = as.vector(t(X_it_5)))
   df <- data.frame(i = rep(c(1:N), each = T_),
                    t = rep(c(1:T_), times = N),
                    y_it = as.vector(t(Y_it)),
-                   x_it_1 = as.vector(t(X_it_1)),
-                   x_it_2 = as.vector(t(X_it_2)),
-                   x_it_3 = as.vector(t(X_it_3)),
-                   x_it_4 = as.vector(t(X_it_4)),
-                   x_it_5 = as.vector(t(X_it_5)))
+                   X_df[,1:p])
   # Save results to lists
   X_list <- list()
   Y_list <- list()
   for(i in 1:N){
-    X_list[[i]] <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
+    X_list[[i]] <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+p)])
     Y_list[[i]] <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
   }
   return(list(df=df, X_list=X_list, Y_list=Y_list))
@@ -150,12 +154,12 @@ OLS_FE <- function(df){
   # Initialize
   N <- length(unique(df$i))
   T_ <- length(unique(df$t))
-  K <- ncol(df) - 3
-  A <- array(0, dim = c(K,K))
-  B <- rep(0, K)
+  p <- ncol(df) - 3
+  A <- array(0, dim = c(p,p))
+  B <- rep(0, p)
   # Loop over N & T_
   for(i in 1:N){
-    X_i <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+K)])
+    X_i <- as.matrix(df[((i-1)*T_+1):(i*T_), 4:(3+p)])
     Y_i <- as.matrix(df$y_it[((i-1)*T_+1):(i*T_)])
     x_i_mean <- colMeans(X_i)
     y_i_mean <- mean(Y_i)
@@ -170,10 +174,10 @@ OLS_FE <- function(df){
 
 # alternatively, we can use plm package for FE estimation
 OLS_FE2 <- function(df){
-  K <- ncol(df) - 3
+  p <- ncol(df) - 3
   data <- pdata.frame(df,index=c("i","t"))
   formulate <- reformulate(response = c("y_it"), termlabels =
-                             paste0("x_it_",c(0:(K-1))) %>% paste(collapse = " + "))
+                             paste0("x_it_",c(0:(p-1))) %>% paste(collapse = " + "))
   result <- plm(formulate, data=data,
                 effect = "individual",model="within")
   return(list(beta_hat = as.matrix(result$coefficients)))
@@ -183,11 +187,11 @@ OLS_FE2 <- function(df){
 #####  Interacctive Fixed Effect Methods  #####
 
 ### Least Squares Model ###
-#Step 1:define funtion to caculate F_hat, dim of F_hat is (T_, r)
-caculate_F_hat <- function(X_list, Y_list, beta_hat, r){
+#Step 1:define funtion to calculate F_hat, dim of F_hat is (T_, r)
+calculate_F_hat <- function(X_list, Y_list, beta_hat, r){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
-  K <- dim(X_list[[1]])[2]
+  p <- dim(X_list[[1]])[2]
   
   WWT <- matrix(0, nrow=T_, ncol=T_)
   for(i in 1:N){
@@ -201,11 +205,11 @@ caculate_F_hat <- function(X_list, Y_list, beta_hat, r){
   return(F_hat)
 }
 
-#Step 2:define funtion to caculate Lambda_hat, dim of Lambda_hat is (r, N)
-caculate_Lambda_hat <- function(X_list, Y_list, beta_hat, F_hat, r){
+#Step 2:define funtion to calculate Lambda_hat, dim of Lambda_hat is (r, N)
+calculate_Lambda_hat <- function(X_list, Y_list, beta_hat, F_hat, r){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
-  K <- dim(X_list[[1]])[2]
+  p <- dim(X_list[[1]])[2]
   
   Lambda_hat <- matrix(NA, nrow = N, ncol = r)
   for(i in 1:N){
@@ -216,14 +220,14 @@ caculate_Lambda_hat <- function(X_list, Y_list, beta_hat, F_hat, r){
   return(Lambda_hat)
 }
 
-#Step 3:define funtion to caculate Beta_hat
-caculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
+#Step 3:define funtion to calculate Beta_hat
+calculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
-  K <- dim(X_list[[1]])[2]
+  p <- dim(X_list[[1]])[2]
   
-  A <- matrix(0, nrow=K, ncol=K)
-  B <- matrix(0, nrow=K, ncol=1)
+  A <- matrix(0, nrow=p, ncol=p)
+  B <- matrix(0, nrow=p, ncol=1)
   for(i in 1:N){
     X_i <- X_list[[i]]
     Y_i <- Y_list[[i]]
@@ -234,26 +238,25 @@ caculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
   return(beta_hat)
 }
 
-#Step 5:caculate Beta_hat by iterations
+#Step 5:calculate Beta_hat by iterations
 least_squares <- function(X_list, Y_list, df, tolerance){
   # Initialize
   r <- 4
-  K <- dim(X_list[[1]])[2]
+  p <- dim(X_list[[1]])[2]
   formulate <- reformulate(response = c("y_it"), termlabels =
-                             paste0("x_it_",c(1:K)) %>% paste(collapse = " + "))
+                             paste0("x_it_",c(1:p)) %>% paste(collapse = " + "))
   beta_hat_0 <- plm(formulate, data=df, model="pooling")$coefficients %>% as.matrix()
   
   beta_hat_list <- list(beta_hat_0)
   e <- Inf
   while (e > tolerance) {
-    F_hat <- caculate_F_hat(X_list, Y_list, beta_hat_0, r)
-    Lambda_hat <- caculate_Lambda_hat(X_list, Y_list, beta_hat_0, F_hat, r)
-    beta_hat <- caculate_beta_hat(X_list, Y_list, F_hat, Lambda_hat)
+    F_hat <- calculate_F_hat(X_list, Y_list, beta_hat_0, r)
+    Lambda_hat <- calculate_Lambda_hat(X_list, Y_list, beta_hat_0, F_hat, r)
+    beta_hat <- calculate_beta_hat(X_list, Y_list, F_hat, Lambda_hat)
     beta_hat_list[[length(beta_hat_list)+1]] <- beta_hat
     e <- norm(beta_hat - beta_hat_0, type = "F")
     beta_hat_0 <- beta_hat
   }
-  
   
   return(list(beta_hat=beta_hat, beta_hat_list=beta_hat_list, F_hat=F_hat, Lambda_hat=Lambda_hat))
 }
@@ -269,16 +272,16 @@ methods <- list(OLS_FE = function(X_list, Y_list, df) OLS_FE(df),  # make these 
                 OLS_FE2 = function(X_list, Y_list, df) OLS_FE2(df),
                 least_squares = 
                   function(X_list, Y_list, df)
-                    least_squares(X_list, Y_list, df, tolerance=0.005))
+                    least_squares(X_list, Y_list, df, tolerance=0.0001))
 
 sim <- function(dgp, method, beta_true, all_N, all_T, nsims){
   # Initialize
-  K <- length(beta_true)
+  p <- length(beta_true)
   # Data frame to save every beta_hat
   df_beta_hat <- data.frame(T_ = rep(all_T, times = length(all_N), each = nsims),
                             N = rep(all_N, each = length(all_T) * nsims),
                             sim = rep(1:nsims, times = length(all_N) * length(all_T)),
-                            beta = matrix(NA,ncol=K))
+                            beta = matrix(NA,ncol=p))
   # Loop over all_N and all_T and c(1:nsims) for simulation
   count_df_beta_hat <- 1
   for(i in 1:length(all_N)){
@@ -289,7 +292,7 @@ sim <- function(dgp, method, beta_true, all_N, all_T, nsims){
         sim_data <- dgp(T_=T_, N=N, beta_true=beta_true)
         result <- method(sim_data$X_list, sim_data$Y_list, sim_data$df)
         beta_hat <- result$beta_hat
-        df_beta_hat[count_df_beta_hat, 4:(3+K)] <- beta_hat
+        df_beta_hat[count_df_beta_hat, 4:(3+p)] <- beta_hat
         count_df_beta_hat <- count_df_beta_hat + 1
       }
     }
@@ -311,40 +314,40 @@ mse <- function(est_list, real_para){
 }
 
 #####  Compute standard error  #####
-#Page 1240, define funtion to caculate a_ik
-caculate_a <- function(N, Lambda_hat){
+#Page 1240, define funtion to calculate a_ik
+calculate_a <- function(N, Lambda_hat){
   A <- solve(crossprod(Lambda_hat, Lambda_hat) / N)
   a <- matrix(NA, nrow = N, ncol = N)
   for(i in 1:N){
-    for(k in 1:N){
-      a[i,k] <- t(Lambda_hat[i,]) %*% A %*% Lambda_hat[k,]
+    for(p in 1:N){
+      a[i,p] <- t(Lambda_hat[i,]) %*% A %*% Lambda_hat[p,]
     }
   }
   return(a)
 }
 
-#Page 1241, define funtion to caculate Zi
-caculate_Z <- function(X_list, N, M, a){
+#Page 1241, define funtion to calculate Zi
+calculate_Z <- function(X_list, N, M, a){
   Z_list <- list()
   for(i in 1:N){
-    # dims of Z_i is c(T, K)
+    # dims of Z_i is c(T, p)
     Z_list[[i]] <- M %*% X_list[[i]] - 1/N * M %*% X_list[[i]] * sum(a[i,])
   }
   return(Z_list)
 }
 
-#Page 1246 & 1252, define funtion to caculate D0 and D1
-caculate_D <- function(X_list, Y_list, N, T_, K, beta_hat, F_hat, Lambda_hat, Z){
+#Page 1246 & 1252, define funtion to calculate D0 and D1
+calculate_D <- function(X_list, Y_list, N, T_, p, beta_hat, F_hat, Lambda_hat, Z){
   sita_square <- rep(0, N)
   for(i in 1:N){
     for(t in 1:T_){
       sita_square[i]  <- sita_square[i] + 1/T_ * (Y_list[[i]][t] - crossprod(beta_hat, X_list[[i]][t,])
-                                                 - crossprod(Lambda_hat[i,], F_hat[t,])) ^ 2
+                                                  - crossprod(Lambda_hat[i,], F_hat[t,])) ^ 2
     }
   }
   
-  D0 <- matrix(0, nrow = K, ncol = K)
-  D1 <- matrix(0, nrow = K, ncol = K)
+  D0 <- matrix(0, nrow = p, ncol = p)
+  D1 <- matrix(0, nrow = p, ncol = p)
   for(i in 1:N){
     for(t in 1:T_){
       A <- 1/(N*T_) * tcrossprod(Z[[i]][t,], Z[[i]][t,])
@@ -355,16 +358,16 @@ caculate_D <- function(X_list, Y_list, N, T_, K, beta_hat, F_hat, Lambda_hat, Z)
   return(list(D0=D0, D1=D1))
 }
 
-#Page 1246, define funtion to caculate covariance matrix of beta_hat
+#Page 1246, define funtion to calculate covariance matrix of beta_hat
 sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
-  K <- dim(X_list[[1]])[2]
+  p <- dim(X_list[[1]])[2]
   
   M <- diag(1, nrow = T_) - tcrossprod(F_hat, F_hat) / T_
-  a <- caculate_a(N, Lambda_hat)
-  Z <- caculate_Z(X_list, N, M, a)
-  D <- caculate_D(X_list, Y_list, N, T_, K, beta_hat, F_hat, Lambda_hat, Z)
+  a <- calculate_a(N, Lambda_hat)
+  Z <- calculate_Z(X_list, N, M, a)
+  D <- calculate_D(X_list, Y_list, N, T_, p, beta_hat, F_hat, Lambda_hat, Z)
   sde <- solve(D$D0) %*% D$D1 %*% solve(t(D$D0))
   return(sde)
 }
@@ -373,9 +376,9 @@ mean_value <- function(est_list){
   #Input: list of estimations
   #Output: vector of mean estimation, denoted by m
   N <- length(est_list) 
-  k <- length(est_list[[1]])
-  m <- rep(0, k)
-  for (j in 1:k){
+  p <- length(est_list[[1]])
+  m <- rep(0, p)
+  for (j in 1:p){
     for (i in 1:N){
       m[j] <- m[j]+est_list[[i]][j]
     }
@@ -385,7 +388,7 @@ mean_value <- function(est_list){
 #####  Statistics  #####
 statistics <- function(df_beta_hat, beta_true, all_N, all_T, nsims){
   # Initialize
-  K <- length(beta_true)
+  p <- length(beta_true)
   # Data frame to save statistics variable
   df_statistic <- data.frame(T_ = rep(all_T, times = length(all_N)),
                              N = rep(all_N, each = length(all_T)),
@@ -405,7 +408,7 @@ statistics <- function(df_beta_hat, beta_true, all_N, all_T, nsims){
       df_statistic$var_x1[count_df_statistic] <- var(df_beta_hat$beta.1[row_range])
       df_statistic$bias_x1[count_df_statistic] <- 
         abs(df_statistic$mean_x1[count_df_statistic] - beta_true[1]) / beta_true[1]
-      beta_hat_list <- as.list(as.data.frame(t(df_beta_hat[row_range, 4:(3+K)])))
+      beta_hat_list <- as.list(as.data.frame(t(df_beta_hat[row_range, 4:(3+p)])))
       df_statistic$mse[count_df_statistic] <- mse(beta_hat_list, beta_true)
       count_df_statistic <- count_df_statistic + 1
     }
@@ -426,12 +429,12 @@ all.equal(OLS_FE(dgp1$df)$beta_hat, OLS_FE2(dgp1$df)$beta_hat)
 T_ <- 50
 N <- 100
 tol <-0.0001
-beta_true <- c(1,3,5,2,4)
+beta_true <- c(1,3,5,0,0)
 
 beta_hat_list <- list() #List that stores the estimate of beta_hat in each regression
 n_reg <- 10 #number of regressions
 for (i in 1:n_reg){
-  dgp<-DGP3(T_, N, beta_true)
+  dgp<-DGP3(T_, N, beta_true, p=3)
   X <- dgp$X
   Y <- dgp$Y
   df<-dgp$df
@@ -465,7 +468,7 @@ stat1$df_statistic
 all_n <- c(1000, 2000, 3000)
 nsims <- 100
 beta_true <- c(1:3)
-sim1 <- sim(K = 3, beta_true = beta_true, all_n = all_n, all_T = c(3), nsims = nsims)
+sim1 <- sim(p = 3, beta_true = beta_true, all_n = all_n, all_T = c(3), nsims = nsims)
 beta_hat_1 <- sim1$beta_hat_1
 beta_true_1 <- beta_true[1]
 beta_hat_1_df <- data.frame(t(beta_hat_1[,1,]))
@@ -488,7 +491,7 @@ box_plot <- ggplot(data = beta_hat_1_df) +
 print(box_plot)
 
 ##### sim2 #####
-sim2 <- sim(K = 3, beta_true = c(1:3), all_n = seq(1000, 10000, 1000), all_T = seq(3,30,3), nsims = 1)
+sim2 <- sim(p = 3, beta_true = c(1:3), all_n = seq(1000, 10000, 1000), all_T = seq(3,30,3), nsims = 1)
 beta_hat_1 <- sim2$beta_hat_1
 beta_true_1 <- 1
 summary_beta_hat_1 <- sim2$summary_beta_hat_1
