@@ -239,14 +239,14 @@ calculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
 }
 
 #Step 5:calculate Beta_hat by iterations
-least_squares <- function(X_list, Y_list, df, tolerance){
+least_squares <- function(X_list, Y_list, df, tolerance, r){
   # Initialize
-  r <- 4
   p <- dim(X_list[[1]])[2]
-  formulate <- reformulate(response = c("y_it"), termlabels =
-                             paste0("x_it_",c(1:p)) %>% paste(collapse = " + "))
+  formulate <- paste0("y_it ~ ", paste0("x_it_",c(1:p)) %>% paste(collapse = " + "), ifelse(p<=2, " + 0", ""))
   beta_hat_0 <- plm(formulate, data=df, model="pooling")$coefficients %>% as.matrix()
-  
+  if(p >=3){
+    beta_hat_0[c(3,1,2)] <- beta_hat_0[c(1,2,3)]
+  }
   beta_hat_list <- list(beta_hat_0)
   e <- Inf
   while (e > tolerance) {
@@ -435,19 +435,17 @@ beta_hat_list <- list() #List that stores the estimate of beta_hat in each regre
 n_reg <- 10 #number of regressions
 for (i in 1:n_reg){
   dgp<-DGP3(T_, N, beta_true, p=3)
-  X <- dgp$X
-  Y <- dgp$Y
   df<-dgp$df
   X_list <- dgp$X_list
   Y_list <- dgp$Y_list
-  ls <- least_squares(X_list, Y_list, df, tol)
+  ls <- least_squares(X_list, Y_list, df, tol, r=2)
   beta_hat_list[[i]] <- ls$beta_hat
   
   F_hat <- ls$F_hat
   Lambda_hat <- ls$Lambda_hat
   ls_sde <- sde(X_list, Y_list, ls$beta_hat, F_hat, Lambda_hat)
 }
-MSE <- mse(beta_hat_list, beta_true)
+#MSE <- mse(beta_hat_list, beta_true)
 (MEAN <- mean_value(beta_hat_list))
 
 
