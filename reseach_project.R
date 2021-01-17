@@ -266,48 +266,15 @@ least_squares <- function(X_list, Y_list, df, tolerance, r){
 #####     Result     #####
 ##########################
 
-#####  Simulation  #####
-dgps <- list(DGP1=DGP1, DGP3=DGP3)
-methods <- list(OLS_FE = function(X_list, Y_list, df) OLS_FE(df),  # make these methods have same params
-                OLS_FE2 = function(X_list, Y_list, df) OLS_FE2(df),
-                least_squares = 
-                  function(X_list, Y_list, df)
-                    least_squares(X_list, Y_list, df, tolerance=0.0001))
-
-sim <- function(dgp, method, beta_true, all_N, all_T, nsims){
-  # Initialize
-  p <- length(beta_true)
-  # Data frame to save every beta_hat
-  df_beta_hat <- data.frame(T_ = rep(all_T, times = length(all_N), each = nsims),
-                            N = rep(all_N, each = length(all_T) * nsims),
-                            sim = rep(1:nsims, times = length(all_N) * length(all_T)),
-                            beta = matrix(NA,ncol=p))
-  # Loop over all_N and all_T and c(1:nsims) for simulation
-  count_df_beta_hat <- 1
-  for(i in 1:length(all_N)){
-    N <- all_N[i]
-    for(j in 1:length(all_T)){
-      T_ <- all_T[j]
-      for(h in 1:nsims){
-        sim_data <- dgp(T_=T_, N=N, beta_true=beta_true)
-        result <- method(sim_data$X_list, sim_data$Y_list, sim_data$df)
-        beta_hat <- result$beta_hat
-        df_beta_hat[count_df_beta_hat, 4:(3+p)] <- beta_hat
-        count_df_beta_hat <- count_df_beta_hat + 1
-      }
-    }
-  }
-  return(list(df_beta_hat=df_beta_hat))
-}
-
 #####  Compute mean squared error  #####
-#input: list of estimations and real parameters
+#input: data frame or matrix of estimations and real parameters
 #output: mean squared error
-mse <- function(est_list, real_para){
+mse <- function(est_df, real_para){
   mse <- 0
-  N <- length(est_list) 
+  N <- nrow(est_df)
+  real_para <- real_para[1:ncol(est_df)]
   for (i in 1:N){
-    mse <- mse + norm(est_list[[i]]-real_para, type="2")^2
+    mse <- mse + norm(est_df[i,]-real_para, type="2")^2
   }
   mse <- 1/N * mse
   return(mse)
@@ -359,7 +326,7 @@ calculate_D <- function(X_list, Y_list, N, T_, p, beta_hat, F_hat, Lambda_hat, Z
 }
 
 #Page 1246, define funtion to calculate covariance matrix of beta_hat
-sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
+calculate_sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
   p <- dim(X_list[[1]])[2]
@@ -385,33 +352,70 @@ mean_value <- function(est_list){
   }
   return (1/N*m)
 }
-#####  Statistics  #####
-statistics <- function(df_beta_hat, beta_true, all_N, all_T, nsims){
-  # Initialize
-  p <- length(beta_true)
-  # Data frame to save statistics variable
-  df_statistic <- data.frame(T_ = rep(all_T, times = length(all_N)),
-                             N = rep(all_N, each = length(all_T)),
-                             mean_x1 = NA,
-                             var_x1 = NA,
-                             bias_x1 = NA,
-                             mse = NA)
-  
-  count_df_statistic <- 1
-  for(i in 1:length(all_N)){
-    N <- all_N[i]
-    for(j in 1:length(all_T)){
-      T_ <- all_T[j]
-      row_range <- c((count_df_statistic*nsims-nsims+1) : (count_df_statistic*nsims)) # rows range of beta_hat for N and T_
+
+#####  Simulation  #####
+sim_dgp3_ls <- function(beta_true, p, tolerance, r, all_N, all_T, nsims){
+  # Data frame to save every beta_hat
+  df_beta_hat <- data.frame(T_ = rep(all_T, each = nsims),
+                            N = rep(all_N, each = nsims),
+                            sim = rep(1:nsims, times = length(all_N)),
+                            beta = matrix(NA,ncol=p))
+  df_sde <- data.frame(T_ = rep(all_T, each = nsims),
+                       N = rep(all_N, each = nsims),
+                       sim = rep(1:nsims, times = length(all_N)),
+                       sde = matrix(NA,ncol=p))
+  # Loop over all_N and all_T and c(1:nsims) for simulation
+  loop_count <- 1
+  for(case in 1:length(all_N)){
+    N <- all_N[case]
+    T_ <- all_T[case]
+    
+    for(h in 1:nsims){
+      sim_data <- DGP3(T_=T_, N=N, beta_true=beta_true)
+      result <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r)
+      beta_hat <- result$beta_hat
+      df_beta_hat[loop_count, 4:(3+p)] <- beta_hat
       
-      df_statistic$mean_x1[count_df_statistic] <- mean(df_beta_hat$beta.1[row_range])
-      df_statistic$var_x1[count_df_statistic] <- var(df_beta_hat$beta.1[row_range])
-      df_statistic$bias_x1[count_df_statistic] <- 
-        abs(df_statistic$mean_x1[count_df_statistic] - beta_true[1]) / beta_true[1]
-      beta_hat_list <- as.list(as.data.frame(t(df_beta_hat[row_range, 4:(3+p)])))
-      df_statistic$mse[count_df_statistic] <- mse(beta_hat_list, beta_true)
-      count_df_statistic <- count_df_statistic + 1
+      ls_sde <- calculate_sde(sim_data$X_list, sim_data$Y_list, beta_hat, result$F_hat, result$Lambda_hat)
+      df_sde[loop_count, 4:(3+p)] <- sqrt(diag(ls_sde))
+      loop_count <- loop_count + 1
     }
+  }
+  return(list(df_beta_hat=df_beta_hat, df_sde=df_sde))
+}
+
+#####  Statistics  #####
+statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims){
+  # Initialize
+  p <- ncol(df_beta_hat) - 3
+  # Data frame to save statistics variable
+  df_statistic <- data.frame(T_ = all_T,
+                             N = all_N,
+                             mean = matrix(ncol = p),
+                             bias = matrix(ncol = p),
+                             sde = matrix(ncol = p),
+                             ci_l = matrix(ncol = p),
+                             ci_u = matrix(ncol = p),
+                             mse = NA)
+  findcol <- function(column){
+    return(substr(colnames(df_statistic),1,nchar(column))==column)
+  }
+  loop_count <- 1
+  for(case in 1:length(all_N)){
+    N <- all_N[case]
+    T_ <- all_T[case]
+    row_range <- c((loop_count*nsims-nsims+1) : (loop_count*nsims)) # rows range of beta_hat for N and T_
+    
+    df_statistic[loop_count, findcol("mean")] <- colMeans(df_beta_hat[row_range,4:(3+p)], na.rm = T)
+    df_statistic[loop_count, findcol("bias")] <- 
+      abs(df_statistic[loop_count, findcol("mean")] - beta_true[1:p]) / beta_true[1:p]
+    df_statistic$mse[loop_count] <- mse(df_beta_hat[row_range, 4:(3+p)], beta_true)
+    df_statistic[loop_count, findcol("sde")] <- colMeans(df_sde[row_range,4:(3+p)], na.rm = T)
+    df_statistic[loop_count, findcol("ci_l")] <- df_statistic[loop_count, findcol("mean")] -
+      qnorm(0.975,0,1)*df_statistic[loop_count, findcol("sde")]
+    df_statistic[loop_count, findcol("ci_u")] <- df_statistic[loop_count, findcol("mean")] +
+      qnorm(0.975,0,1)*df_statistic[loop_count, findcol("sde")]
+    loop_count <- loop_count + 1
   }
   return(list(df_statistic = df_statistic))
 }
@@ -426,37 +430,46 @@ OLS_FE(dgp1$df)$beta_hat
 OLS_FE2(dgp1$df)$beta_hat
 all.equal(OLS_FE(dgp1$df)$beta_hat, OLS_FE2(dgp1$df)$beta_hat)
 
-T_ <- 50
-N <- 100
+T_ <- 30
+N <- 50
 tol <-0.0001
-beta_true <- c(1,3,5,0,0)
-
-beta_hat_list <- list() #List that stores the estimate of beta_hat in each regression
+beta_true <- c(1,3,5,2,4)
+p <- 5
+df_beta_hat <- data.frame(matrix(nrow=0, ncol = 5)) #List that stores the estimate of beta_hat in each regression
 n_reg <- 10 #number of regressions
 for (i in 1:n_reg){
-  dgp<-DGP3(T_, N, beta_true, p=3)
+  dgp<-DGP3(T_, N, beta_true, p)
   df<-dgp$df
   X_list <- dgp$X_list
   Y_list <- dgp$Y_list
-  ls <- least_squares(X_list, Y_list, df, tol, r=2)
-  beta_hat_list[[i]] <- ls$beta_hat
+  ls <- least_squares(X_list, Y_list, df, tol, r=10)
+  df_beta_hat[i, 1:p] <- ls$beta_hat
   
   F_hat <- ls$F_hat
   Lambda_hat <- ls$Lambda_hat
-  ls_sde <- sde(X_list, Y_list, ls$beta_hat, F_hat, Lambda_hat)
+  ls_sde <- calculate_sde(X_list, Y_list, ls$beta_hat, F_hat, Lambda_hat)
 }
-#MSE <- mse(beta_hat_list, beta_true)
-(MEAN <- mean_value(beta_hat_list))
+(MSE <- mse(df_beta_hat, beta_true))
+(MEAN <- colMeans(df_beta_hat))
 
 
 ##### Generate table #####
-all_N <- c(100)
-all_T <- c(10,20,50,100)
-nsims <- 100
+all_N <- c(100,100,100,100,10,20,50)
+all_T <- c(10,20,50,100,100,100,100)
+nsims <- 5
 beta_true <- c(1,3,5,2,4)
-sim1 <- sim(dgps$DGP3, methods$least_squares, beta_true, all_N, all_T, nsims)
-stat1 <- statistics(sim1$df_beta_hat, beta_true, all_N, all_T, nsims)
-stat1$df_statistic
+p <- 5
+r <- 4
+tolerance <- 0.0001
+sim1 <- sim_dgp3_ls(beta_true, p, tolerance, r, all_N, all_T, nsims)
+stat1 <- statistics(sim1$df_beta_hat, sim1$df_sde, beta_true, all_N, all_T, nsims)
+View(stat1$df_statistic)
+table1 <- stat1$df_statistic[c("N","T_","mean.1","sde.1","mean.2","sde.2",
+                               "mean.3","sde.3","mean.4","sde.4","mean.5","sde.5")]
+colnames(table1) <- c("N","T","Mean β1=1","SD β1","Mean β2=3","SD β2","Mean μ=5","SD μ",
+                      "Mean γ=2","SD γ","Mean =4","SD δ")
+
+
 
 ###########################
 ####   Visualization   ####
@@ -501,3 +514,4 @@ plot_ly(x=im$x, y=im$y, z=im$z, type="surface") %>% add_surface() %>% layout(sce
   xaxis = list(title = 'T'),
   yaxis = list(title = 'N'),
   zaxis = list(title = 'bias')))
+
