@@ -75,9 +75,8 @@ calculate_sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
 
 
 #####  Simulation  #####
-sim_dgp2_ls_fe <- function(beta_true, tolerance, model, all_N, all_T, nsims, need_sde=T, need_fe=T){
+sim_dgp2_ls_fe <- function(beta_true, tolerance, r=2, model, all_N, all_T, nsims, need_sde=T, need_fe=T){
   p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
-  r <- 2
   # Data frame to save every beta_hat
   df_beta_hat_ls <- data.frame(T_ = rep(all_T, each = nsims),
                             N = rep(all_N, each = nsims),
@@ -151,5 +150,5 @@ statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims, is.f
     df_statistic[loop_count, findcol("rmse")] <- rmse(df_beta_hat[row_range, 4:(3+p)], beta_true)
     loop_count <- loop_count + 1
   }
-  return(list(df_statistic = df_statistic))
+  return(df_statistic)
 }

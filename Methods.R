@@ -12,14 +12,9 @@ OLS_FE <- function(X_list, Y_list){
   p <- dim(X_list[[1]])[2]
   A <- array(0, dim = c(p,p))
   B <- rep(0, p)
-  # one.rm <- p >=3 && all(X_list[[1]][,3] == 1, na.rm = T)
   # Loop over N & T_
   for(i in 1:N){
-    # if(one.rm){
-    #   X_i <- X_list[[i]][1:2]
-    # } else{
-      X_i <- X_list[[i]]
-    # }
+    X_i <- X_list[[i]]
     Y_i <- Y_list[[i]]
     x_i_mean <- colMeans(X_i)
     y_i_mean <- mean(Y_i)
