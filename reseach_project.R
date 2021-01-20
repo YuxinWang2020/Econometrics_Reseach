@@ -201,7 +201,7 @@ calculate_F_hat <- function(X_list, Y_list, beta_hat, r){
     WWT <- WWT + W_i %*% t(W_i)
   }
   eig <- eigen(WWT)
-  F_hat <- sqrt(T_)*eig$vectors[,order(eig$values, decreasing = T)[1:r]]
+  F_hat <- as.matrix(sqrt(T_)*eig$vectors[,order(eig$values, decreasing = T)[1:r]])
   return(F_hat)
 }
 
@@ -278,6 +278,15 @@ mse <- function(est_df, real_para){
   }
   mse <- 1/N * mse
   return(mse)
+}
+
+rmse <- function(est_df, real_para){
+  mse <- rep(0, 4)
+  N <- nrow(est_df)
+  real_para <- real_para[1:ncol(est_df)]
+  residual <- t(t(est_df) - real_para) # est_df substract real_para by row
+  rmse <- colMeans(residual^2)
+  return(rmse)
 }
 
 #####  Compute standard error  #####
@@ -396,7 +405,8 @@ statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims){
                              sde = matrix(ncol = p),
                              ci_l = matrix(ncol = p),
                              ci_u = matrix(ncol = p),
-                             mse = NA)
+                             mse = NA,
+                             rmse = matrix(ncol = p))
   findcol <- function(column){
     return(substr(colnames(df_statistic),1,nchar(column))==column)
   }
@@ -415,6 +425,7 @@ statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims){
       qnorm(0.975,0,1)*df_statistic[loop_count, findcol("sde")]
     df_statistic[loop_count, findcol("ci_u")] <- df_statistic[loop_count, findcol("mean")] +
       qnorm(0.975,0,1)*df_statistic[loop_count, findcol("sde")]
+    df_statistic[loop_count, findcol("rmse")] <- rmse(df_beta_hat[row_range, 4:(3+p)], beta_true)
     loop_count <- loop_count + 1
   }
   return(list(df_statistic = df_statistic))
@@ -442,7 +453,7 @@ for (i in 1:n_reg){
   df<-dgp$df
   X_list <- dgp$X_list
   Y_list <- dgp$Y_list
-  ls <- least_squares(X_list, Y_list, df, tol, r=10)
+  ls <- least_squares(X_list, Y_list, df, tol, r=1)
   df_beta_hat[i, 1:p] <- ls$beta_hat
   
   F_hat <- ls$F_hat
@@ -464,12 +475,37 @@ tolerance <- 0.0001
 sim1 <- sim_dgp3_ls(beta_true, p, tolerance, r, all_N, all_T, nsims)
 stat1 <- statistics(sim1$df_beta_hat, sim1$df_sde, beta_true, all_N, all_T, nsims)
 View(stat1$df_statistic)
-table1 <- stat1$df_statistic[c("N","T_","mean.1","sde.1","mean.2","sde.2",
-                               "mean.3","sde.3","mean.4","sde.4","mean.5","sde.5")]
-colnames(table1) <- c("N","T","Mean β1=1","SD β1","Mean β2=3","SD β2","Mean μ=5","SD μ",
-                      "Mean γ=2","SD γ","Mean =4","SD δ")
+table1 <- stat1$df_statistic[c("N","T_","mean.1","rmse.1","mean.2","rmse.2",
+                               "mean.3","rmse.3","mean.4","rmse.4","mean.5","rmse.5")]
+colnames(table1) <- c("N","T","Mean ??1=1","SD ??1","Mean ??2=3","SD ??2","Mean ??=5","SD ??",
+                      "Mean ??=2","SD ??","Mean =4","SD ??")
 
 
+################
+## Loop for r ##
+################
+all_N <- c(50)
+all_T <- c(50)
+nsims <- 5
+beta_true <- c(1,3,5,2,4)
+rs <- c(1:10)
+p <- 5
+tolerance <- 0.0001
+sim_data_loop_r <- as.list(rep(NA, length(rs)))
+names(sim_data_loop_r) <- paste0("r",rs)
+table_loop_r_list <- stat_loop_r <- sim_data_loop_r
+for(i in 1:length(rs)){
+  r <- rs[i]
+  sim_data <- sim_dgp3_ls(beta_true, p, tolerance, r, all_N, all_T, nsims)
+  sim_data_loop_r[[i]] <- sim_data
+  stat_ls <- statistics(sim_data$df_beta_hat, sim_data$df_sde, beta_true, all_N, all_T, nsims)$df_statistic
+  stat_loop_r[[i]] <- stat_ls
+  table_loop_r <- stat_ls[c("N","T_","mean.1","rmse.1","mean.2","rmse.2",
+                            "mean.3","rmse.3","mean.4","rmse.4","mean.5","rmse.5")]
+  colnames(table_loop_r) <- c("N","T","Mean ??1=1","SD ??1","Mean ??2=3","SD ??2","Mean ??=5","SD ??",
+                              "Mean ??=2","SD ??","Mean =4","SD ??")
+  table_loop_r_list[[i]] <- table_loop_r
+}
 
 ###########################
 ####   Visualization   ####
