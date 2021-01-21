@@ -75,7 +75,7 @@ calculate_sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
 
 
 #####  Simulation  #####
-sim_dgp2_ls_fe <- function(beta_true, tolerance, r=2, model, all_N, all_T, nsims, need_sde=T, need_fe=T){
+sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde, need.fe){
   p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
   # Data frame to save every beta_hat
   df_beta_hat_ls <- data.frame(T_ = rep(all_T, each = nsims),
@@ -100,11 +100,11 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r=2, model, all_N, all_T, nsims
       sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model)
       result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r)
       df_beta_hat_ls[loop_count, 4:(3+p)] <- result_ls$beta_hat
-      if(need_fe){
+      if(need.fe){
         X_list_no_singular <- lapply(sim_data$X_list, function(X_i) X_i[,1:2])
         df_beta_hat_fe[loop_count, 4:5] <- OLS_FE(X_list_no_singular, sim_data$Y_list)$beta_hat
       }
-      if(need_sde){
+      if(need.sde){
         ls_sde <- calculate_sde(sim_data$X_list, sim_data$Y_list, result_ls$beta_hat, result_ls$F_hat, result_ls$Lambda_hat)
         df_sde[loop_count, 4:(3+p)] <- sqrt(diag(ls_sde))
       }
@@ -115,7 +115,7 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r=2, model, all_N, all_T, nsims
 }
 
 #####  Statistics  #####
-statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims, is.fe=F){
+statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims, is.fe){
   # Initialize
   p <- ncol(df_beta_hat) - 3
   beta_true <- beta_true[1:p]

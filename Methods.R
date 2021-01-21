@@ -45,7 +45,7 @@ calculate_F_hat <- function(X_list, Y_list, beta_hat, r){
     WWT <- WWT + W_i %*% t(W_i)
   }
   eig <- eigen(WWT)
-  F_hat <- sqrt(T_)*eig$vectors[,order(eig$values, decreasing = T)[1:r]]
+  F_hat <- as.matrix(sqrt(T_)*eig$vectors[,order(eig$values, decreasing = T)[1:r]])
   return(F_hat)
 }
 
