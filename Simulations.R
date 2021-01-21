@@ -1,5 +1,6 @@
 rm(list = ls())
 
+if (!require("dplyr")) install.packages("dplyr")
 if (!require("MASS")) install.packages("MASS")
 if (!require("ggplot2")) install.packages("ggplot2")
 if (!require("akima")) install.packages("akima")
@@ -26,7 +27,7 @@ r <- 2
 models <- c("model1","model2","model3","model4","model5")
 sim_data_list1 <- as.list(rep(NA, length(models)))
 names(sim_data_list1) <- models
-table_ls_list <- table_fe_list <- stat_ls_list1 <- stat_fe_list1 <- sim_data_list1
+table_loop_models_list <- stat_ls_list1 <- stat_fe_list1 <- sim_data_list1
 select_statistics <- list(colName = c("mean", "rmse"), presentName = c("Mean", "SD"))
 coefficients <- c("β1", "β2", "μ", "γ", "δ")
 for(model in models){
@@ -43,15 +44,16 @@ for(model in models){
                                          rep(1:p, each=length(select_statistics$colName))))]
   colnames(table_ls) <- c("N","T_", paste(rep(select_statistics$presentName, p),
                                           rep(coefficients[1:p], each=length(select_statistics$presentName))))
-  write.csv(table_ls, file = paste0("out/tables/table_ls_",model,".csv"), row.names = FALSE)
-  table_ls_list[[model]] <- table_ls
   p <- 2
   table_fe <- stat_fe[c("N","T_", paste0(rep(select_statistics$colName, p), ".",
                                          rep(1:p, each=length(select_statistics$colName))))]
   colnames(table_fe) <- c("N","T_", paste(rep(select_statistics$presentName, p),
                                           rep(coefficients[1:p], each=length(select_statistics$presentName))))
-  write.csv(table_fe, file = paste0("out/tables/table_fe_",model,".csv"), row.names = FALSE)
-  table_fe_list[[model]] <- table_fe
+  
+  table_loop_models <- bind_rows(cbind(method="Least Squares", table_ls),
+                             cbind(method="Fixed Effects", table_fe))
+  write.csv(table_loop_models, file = paste0("out/tables/table_",model,".csv"), row.names = FALSE)
+  table_loop_models_list[[model]] <- table_loop_models
 }
 
 #####  Loop for r ##### 
@@ -68,16 +70,18 @@ names(sim_data_list2) <- paste0("r",rs)
 stat_ls_list2 <- sim_data_list2
 select_statistics <- list(colName = c("mean", "rmse", "sde"), presentName = c("Mean", "SD", "SDE"))
 coefficients <- c("β1", "β2", "μ", "γ", "δ")
-table_loop_r <- data.frame(matrix(NA, nrow = length(rs), ncol = 3+p*length(select_statistics$presentName)))
-colnames(table_loop_r) <- c("r","N","T_", paste(rep(select_statistics$presentName, p),
-                                                rep(coefficients[1:p], each=length(select_statistics$presentName))))
+table_loop_r <- data.frame(matrix(NA, nrow = 0, ncol = 0))
 for(i in 1:length(rs)){
   r <- rs[i]
   sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, r_N, r_T, nsims, need.sde=T, need.fe=F)
   sim_data_list2[[i]] <- sim_data
   stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, r_N, r_T, nsims, is.fe = F)
   stat_ls_list2[[i]] <- stat_ls
-  table_loop_r[i, ] <- c(r, stat_ls[c("N","T_", paste0(rep(select_statistics$colName, p), ".",
-                                                       rep(1:p, each=length(select_statistics$colName))))])
+  
+  table_ls <- stat_ls[c("N","T_", paste0(rep(select_statistics$colName, p), ".",
+                                         rep(1:p, each=length(select_statistics$colName))))]
+  colnames(table_ls) <- c("N","T_", paste(rep(select_statistics$presentName, p),
+                                          rep(coefficients[1:p], each=length(select_statistics$presentName))))
+  table_loop_r <- bind_rows(table_loop_r,  cbind(r=r, table_ls))
 }
 write.csv(table_loop_r, file = "out/tables/table_loop_r.csv", row.names = FALSE)
