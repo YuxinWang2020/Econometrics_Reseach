@@ -89,7 +89,7 @@ DGP2 <- function(T_, N, beta_true){
   return(list(df=df, X_list=X_list, Y_list=Y_list))
 }
 
-DGP3 <- function(T_, N, beta_true=c(1,3,5,2,4), p=5){
+DGP3 <- function(T_, N, beta_true, p){
   # Set parameters
   r<-2
   mu <- beta_true[3]
@@ -380,7 +380,7 @@ sim_dgp3_ls <- function(beta_true, p, tolerance, r, all_N, all_T, nsims){
     T_ <- all_T[case]
     
     for(h in 1:nsims){
-      sim_data <- DGP3(T_=T_, N=N, beta_true=beta_true)
+      sim_data <- DGP3(T_=T_, N=N, beta_true=beta_true, p)
       result <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r)
       beta_hat <- result$beta_hat
       df_beta_hat[loop_count, 4:(3+p)] <- beta_hat
@@ -499,8 +499,8 @@ for(i in 1:length(rs)){
   sim_data <- sim_dgp3_ls(beta_true, p, tolerance, r, all_N, all_T, nsims)
   sim_data_loop_r[[i]] <- sim_data
   stat_ls <- statistics(sim_data$df_beta_hat, sim_data$df_sde, beta_true, all_N, all_T, nsims)$df_statistic
-  stat_loop_r[[i]] <- stat_ls
-  table_loop_r <- stat_ls[c("N","T_","mean.1","rmse.1","mean.2","rmse.2",
+  stat_loop_r[[i]] <- stat_ls$df_statistic
+  table_loop_r <- stat_ls$df_statistic[c("N","T_","mean.1","rmse.1","mean.2","rmse.2",
                             "mean.3","rmse.3","mean.4","rmse.4","mean.5","rmse.5")]
   colnames(table_loop_r) <- c("N","T","Mean ??1=1","SD ??1","Mean ??2=3","SD ??2","Mean ??=5","SD ??",
                               "Mean ??=2","SD ??","Mean =4","SD ??")
