@@ -15,7 +15,7 @@ library(compiler)
 enableJIT(3)
 setCompilerOptions(optimize=3)
 # use parallel
-cl <- makeCluster(detectCores()/2)
+# cl <- makeCluster(detectCores()/2)
 # create dir
 dir.create("out", showWarnings = F)
 dir.create("out/tables", showWarnings = F)
