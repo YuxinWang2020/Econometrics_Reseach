@@ -2,20 +2,12 @@ rm(list = ls())
 
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("MASS")) install.packages("MASS")
-# if (!require("reshape2")) install.packages("reshape2")
 if (!require("plm")) install.packages("plm")
-if (!require("matlab")) install.packages("matlab") # for meshgrid()
-library(parallel)
-# for plot
-if (!require("ggplot2")) install.packages("ggplot2")
-if (!require("akima")) install.packages("akima")
-if (!require("plotly")) install.packages("plotly")
 # use JIT
 library(compiler)
 enableJIT(3)
 setCompilerOptions(optimize=3)
-# use parallel
-# cl <- makeCluster(detectCores()/2)
+
 # create dir
 dir.create("out", showWarnings = F)
 dir.create("out/tables", showWarnings = F)
@@ -44,12 +36,12 @@ select_statistics <- list(colName = c("mean", "rmse"), presentName = c("Mean", "
 for(model in models){
   sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde=F, need.fe=T) # set need.sde=T if sde is contained in select_statistics
   sim_data_list1[[model]] <- sim_data
-  
+
   stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, all_N, all_T, nsims)
   stat_ls_list1[[model]] <- stat_ls
   stat_fe <- statistics(sim_data$df_beta_hat_fe, NULL, beta_true, all_N, all_T, nsims)
   stat_fe_list1[[model]] <- stat_fe
-  
+
   p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
   table_ls <- stat_ls[c("N","T_", paste0(rep(select_statistics$colName, p), ".",
                                          rep(1:p, each=length(select_statistics$colName))))]
@@ -60,7 +52,7 @@ for(model in models){
                                          rep(1:p, each=length(select_statistics$colName))))]
   colnames(table_fe) <- c("N","T_", paste(rep(select_statistics$presentName, p),
                                           rep(coefficients[1:p], each=length(select_statistics$presentName))))
-  
+
   table_loop_models <- bind_rows(cbind(method="Least Squares", table_ls),
                              cbind(method="Fixed Effects", table_fe))
   write.csv(table_loop_models, file = paste0("out/tables/table_",model,".csv"), row.names = FALSE)
@@ -95,3 +87,4 @@ for(i in 1:length(rs)){
   table_loop_r <- bind_rows(table_loop_r,  cbind(r=r, table_ls))
 }
 write.csv(table_loop_r, file = "out/tables/table_loop_r.csv", row.names = FALSE)
+

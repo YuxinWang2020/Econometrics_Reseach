@@ -171,6 +171,7 @@ for(case in 1:length(all_N)){
 }
 
 df
+write.csv(df, file = "out/tables/determine_num_of_factors.csv", row.names = FALSE)
 
 
 ## caculate r_hat
