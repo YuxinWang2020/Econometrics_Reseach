@@ -2,20 +2,32 @@ rm(list = ls())
 
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("MASS")) install.packages("MASS")
+# if (!require("reshape2")) install.packages("reshape2")
+if (!require("plm")) install.packages("plm")
+if (!require("matlab")) install.packages("matlab") # for meshgrid()
+library(parallel)
+# for plot
 if (!require("ggplot2")) install.packages("ggplot2")
 if (!require("akima")) install.packages("akima")
 if (!require("plotly")) install.packages("plotly")
-if (!require("reshape2")) install.packages("reshape2")
-if (!require("plm")) install.packages("plm")
-
+# use JIT
+library(compiler)
+enableJIT(3)
+setCompilerOptions(optimize=3)
+# use parallel
+cl <- makeCluster(detectCores()/2)
+# create dir
+dir.create("out", showWarnings = F)
+dir.create("out/tables", showWarnings = F)
+dir.create("out/figures", showWarnings = F)
 
 set.seed(123)
 source("DGPs.R")
 source("Methods.R")
 source("Statistics.R")
 
-
 ##### Generate table #####
+coefficients <- c("beta1", "beta2", "mu", "gamma", "delta")
 
 ##### sim1: Loop models & N & T for ls and fe #####
 all_N <- c(100,100,100,100,10,20,50)
@@ -29,14 +41,13 @@ sim_data_list1 <- as.list(rep(NA, length(models)))
 names(sim_data_list1) <- models
 table_loop_models_list <- stat_ls_list1 <- stat_fe_list1 <- sim_data_list1
 select_statistics <- list(colName = c("mean", "rmse"), presentName = c("Mean", "SD"))
-coefficients <- c("β1", "β2", "μ", "γ", "δ")
 for(model in models){
   sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde=T, need.fe=T)
   sim_data_list1[[model]] <- sim_data
   
-  stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, all_N, all_T, nsims, is.fe = F)
+  stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, all_N, all_T, nsims)
   stat_ls_list1[[model]] <- stat_ls
-  stat_fe <- statistics(sim_data$df_beta_hat_fe, NULL, beta_true, all_N, all_T, nsims, is.fe = T)
+  stat_fe <- statistics(sim_data$df_beta_hat_fe, NULL, beta_true, all_N, all_T, nsims)
   stat_fe_list1[[model]] <- stat_fe
   
   p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
@@ -75,7 +86,7 @@ for(i in 1:length(rs)){
   r <- rs[i]
   sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, r_N, r_T, nsims, need.sde=T, need.fe=F)
   sim_data_list2[[i]] <- sim_data
-  stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, r_N, r_T, nsims, is.fe = F)
+  stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, r_N, r_T, nsims)
   stat_ls_list2[[i]] <- stat_ls
   
   table_ls <- stat_ls[c("N","T_", paste0(rep(select_statistics$colName, p), ".",

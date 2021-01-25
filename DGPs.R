@@ -3,36 +3,28 @@
 #######################
 
 
-# X_i <- array(runif(p*T_,range_x[1],range_x[2]), dim = c(T_, p))
-# u_i <- mvrnorm(n = 1, mu = mu_u_i, Sigma = sigma_u_i)
 # Y_i <- alpha_i + X_i %*% beta_true + u_i
 DGP1 <- function(T_, N, beta_true){
   # Set parameters
   p <- length(beta_true)
   range_x <- c(0,1)
   alpha_i <- 1
-  mu_u_i <- rep(0, T_)
-  sigma_u_i <- diag(rep(1, T_))
+  mu_u_i <- 0
+  sigma_u_i <- 1
   # Simulate data 
-  X <- lapply(as.list(1:N), function(i) array(runif(p*T_,range_x[1],range_x[2]), dim = c(T_, p)))
-  U <- lapply(as.list(1:N), function(i) mvrnorm(n = 1, mu = mu_u_i, Sigma = sigma_u_i))
-  Y <- mapply(function(X_i, u_i) alpha_i + X_i %*% beta_true + u_i, X, U, SIMPLIFY=F)
+  X <- array(runif(p*T_*N,range_x[1],range_x[2]), dim = c(T_,N,p)) # array of c(T,N,p)
+  U <- array(rnorm(N*T_, mean=mu_u_i, sd=sigma_u_i), dim = c(T_,N)) # matrix of c(T,N)
+  Y <- Reduce(function(s,i) s + beta_true[i] * X[,,i], 1:length(beta_true), init=0) + U + alpha_i # matrix of c(T,N)
+  X_list <- lapply(seq(dim(X)[2]), function(x) X[ , x, ])
+  Y_list <- lapply(seq(dim(Y)[2]), function(x) Y[ , x])
   # Save all results to data frame
   df <- data.frame(i = rep(c(1:N), each = T_),
                    t = rep(c(1:T_), times = N),
-                   y_it = NA) %>% cbind(matrix(NA,nrow=N*T_,ncol=p))
+                   y_it = as.vector(Y),
+                   x_it = matrix(X, nrow=T_*N, ncol=p))
   colnames(df)[4:(3+p)] <- paste0("x_it_",c(1:(p)))
-  # Loop over N & T_
-  for(i in 1:N){
-    X_i <- X[[i]]
-    u_i <- U[[i]]
-    Y_i <- Y[[i]]
-    for(t in 1:T_){
-      df[(i-1)*T_ + t, 4:(3+p)] <- X_i[t,]
-      df$y_it[(i-1)*T_ + t] <- Y_i[t]
-    }
-  }
-  return(list(X_list = X, Y_list = Y, df=df))
+  
+  return(list(X_list = X_list, Y_list = Y_list, df=df))
 }
 
 # model5: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + x_i*gamma + w_t*delta + Lambda_i*Factor_t + eps

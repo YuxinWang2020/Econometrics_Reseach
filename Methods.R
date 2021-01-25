@@ -18,15 +18,21 @@ OLS_FE <- function(X_list, Y_list){
     Y_i <- Y_list[[i]]
     x_i_mean <- colMeans(X_i)
     y_i_mean <- mean(Y_i)
-    for(t in 1:T_){
-      A <- A + (X_i[t,] - x_i_mean) %*% t(X_i[t,] - x_i_mean)
-      B <- B + (X_i[t,] - x_i_mean) * (Y_i[t] - y_i_mean)
-    }
+    
+    A <- A + tcrossprod(t(X_i)-x_i_mean)
+    B <- B + (t(X_i)-x_i_mean) %*% (Y_i - y_i_mean)
   }
   beta_hat_fe <- solve(A) %*% B
   return(list(beta_hat = beta_hat_fe))
 }
-
+# alternatively, we can use plm package for FE estimation
+OLS_FE2 <- function(df){
+  p <- ncol(df) - 3
+  formulate <- paste0("y_it ~ ", paste(paste0("x_it_",c(1:p)), collapse = " + "))
+  result <- plm(formulate, data=df,index=c("i","t"),
+                effect = "individual",model="within")
+  return(list(beta_hat = as.matrix(result$coefficients)))
+}
 
 #####  Interacctive Fixed Effect Methods  #####
 

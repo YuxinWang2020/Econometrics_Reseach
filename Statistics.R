@@ -5,6 +5,17 @@
 #####  Compute mean squared error  #####
 #input: data frame or matrix of estimations and real parameters
 #output: mean squared error
+mse <- function(est_df, real_para){
+  mse <- 0
+  N <- nrow(est_df)
+  real_para <- real_para[1:ncol(est_df)]
+  for (i in 1:N){
+    mse <- mse + norm(est_df[i,]-real_para, type="2")^2
+  }
+  mse <- 1/N * mse
+  return(mse)
+}
+
 rmse <- function(est_df, real_para){
   mse <- rep(0, 4)
   N <- nrow(est_df)
@@ -73,8 +84,44 @@ calculate_sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
   return(sde)
 }
 
+mean_value <- function(est_list){
+  #Input: list of estimations
+  #Output: vector of mean estimation, denoted by m
+  N <- length(est_list) 
+  p <- length(est_list[[1]])
+  m <- rep(0, p)
+  for (j in 1:p){
+    for (i in 1:N){
+      m[j] <- m[j]+est_list[[i]][j]
+    }
+  }
+  return (1/N*m)
+}
 
 #####  Simulation  #####
+
+sim_dgp1_fe <- function(beta_true, all_N, all_T, nsims){
+  # Data frame to save every beta_hat
+  p <- length(beta_true)
+  df_beta_hat_fe <- data.frame(T_ = rep(all_T, each = nsims),
+                               N = rep(all_N, each = nsims),
+                               sim = rep(1:nsims, times = length(all_N)),
+                               beta = matrix(NA,ncol=p))
+  # Loop over all_N and all_T and c(1:nsims) for simulation
+  loop_count <- 1
+  for(case in 1:length(all_N)){
+    N <- all_N[case]
+    T_ <- all_T[case]
+    for(h in 1:nsims){
+      sim_data <- DGP1(T_=T_, N=N, beta_true=beta_true)
+      result_fe <- OLS_FE(sim_data$X_list, sim_data$Y_list)
+      df_beta_hat_fe[loop_count, 4:(3+p)] <- result_fe$beta_hat
+      loop_count <- loop_count + 1
+    }
+  }
+  return(list(df_beta_hat_fe=df_beta_hat_fe))
+}
+
 sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde, need.fe){
   p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
   # Data frame to save every beta_hat
@@ -115,7 +162,7 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, 
 }
 
 #####  Statistics  #####
-statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims, is.fe){
+statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims){
   # Initialize
   p <- ncol(df_beta_hat) - 3
   beta_true <- beta_true[1:p]
@@ -140,7 +187,7 @@ statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims, is.f
     df_statistic[loop_count, findcol("mean")] <- colMeans(df_beta_hat[row_range,4:(3+p)], na.rm = T)
     df_statistic[loop_count, findcol("bias")] <- 
       t(abs(t(df_statistic[loop_count, findcol("mean")]) - beta_true) / beta_true)
-    if(!is.fe){
+    if(!is.null(df_sde)){
       df_statistic[loop_count, findcol("sde")] <- colMeans(df_sde[row_range,4:(3+p)], na.rm = T)
       df_statistic[loop_count, findcol("ci_l")] <- df_statistic[loop_count, findcol("mean")] -
         qnorm(0.975,0,1)*df_statistic[loop_count, findcol("sde")]
