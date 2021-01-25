@@ -32,7 +32,7 @@ coefficients <- c("beta1", "beta2", "mu", "gamma", "delta")
 ##### sim1: Loop models & N & T for ls and fe #####
 all_N <- c(100,100,100,100,10,20,50)
 all_T <- c(10,20,50,100,100,100,100)
-nsims <- 3
+nsims <- 100
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 r <- 2
@@ -42,7 +42,7 @@ names(sim_data_list1) <- models
 table_loop_models_list <- stat_ls_list1 <- stat_fe_list1 <- sim_data_list1
 select_statistics <- list(colName = c("mean", "rmse"), presentName = c("Mean", "SD"))
 for(model in models){
-  sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde=T, need.fe=T)
+  sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde=F, need.fe=T) # set need.sde=T if sde is contained in select_statistics
   sim_data_list1[[model]] <- sim_data
   
   stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, all_N, all_T, nsims)
@@ -70,7 +70,7 @@ for(model in models){
 #####  Loop for r ##### 
 r_N <- c(50)
 r_T <- c(50)
-nsims <- 3
+nsims <- 100
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 model <- "model5"
@@ -80,7 +80,6 @@ sim_data_list2 <- as.list(rep(NA, length(rs)))
 names(sim_data_list2) <- paste0("r",rs)
 stat_ls_list2 <- sim_data_list2
 select_statistics <- list(colName = c("mean", "rmse", "sde"), presentName = c("Mean", "SD", "SDE"))
-coefficients <- c("β1", "β2", "μ", "γ", "δ")
 table_loop_r <- data.frame(matrix(NA, nrow = 0, ncol = 0))
 for(i in 1:length(rs)){
   r <- rs[i]

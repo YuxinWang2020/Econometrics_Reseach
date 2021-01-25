@@ -58,7 +58,7 @@ DGP2 <- function(T_, N, beta_true, model){
     Factor <- rbind(matrix(rnorm(n = T_, mean = 0, sd = 1), nrow=1, ncol=T_), 1)
     Lambda <- rbind(1, matrix(rnorm(n = N, mean = 0, sd = 1), nrow=1, ncol=N))
   } else{
-    Factor <- rbind(matrix(rnorm(n = T_, mean = 0, sd = 1), nrow=1, ncol=T_), 0)
+    Factor <- rbind(0, matrix(1, nrow=1, ncol=T_))
     Lambda <- rbind(1, matrix(rnorm(n = N, mean = 0, sd = 1), nrow=1, ncol=N))
   }
   Eta_1 <- matrix(rnorm(n = T_*N, mean = 0, sd = 1), nrow=N, ncol=T_)
