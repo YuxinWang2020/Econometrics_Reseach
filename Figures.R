@@ -92,9 +92,9 @@ nsims <- 100
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 r <- 2
-models <- c("model1","model2","model3","model4","model5")
+models <- c("model1","model2","model3","model4")
 sim_figure_dgp2_1 <- lapply(as.list(models),
-                            function(model) 
+                            function(model)
                               sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde=F, need.fe=T))
 names(sim_figure_dgp2_1) <- models
 for(model in models){
@@ -106,7 +106,7 @@ for(model in models){
   select.df_beta_hat <- bind_rows(cbind(method="LS", select.df_beta_hat_ls), cbind(method="FE", select.df_beta_hat_fe))
   select.df_beta_hat$N <- as.factor(select.df_beta_hat$N)
   select.df_beta_hat$method <- as.factor(select.df_beta_hat$method)
-  
+
   # jitter point plot for beta_hat in range all_N
   point_plot <- ggplot(data = select.df_beta_hat, aes(x=N)) +
     geom_jitter(aes(y = get(select.col), color = method, shape = method), height=0) +
@@ -141,7 +141,7 @@ nsims <- 50
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 r <- 2
-models <- c("model1","model2","model3","model4","model5")
+models <- c("model1","model2","model3","model4")
 sim_figure_dgp2_2 <- lapply(as.list(models),
                             function(model) 
                               sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N_grid, all_T_grid, nsims, need.sde=F, need.fe=F))
@@ -185,16 +185,16 @@ r_T <- c(50)
 nsims <- 100
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
-model <- "model5"
+model <- "model4"
 rs <- c(1:10)
 sim_figure_dgp2_3 <- as.list(rep(NA, length(rs)))
 stat_ls_list2 <- sim_figure_dgp2_3
 sim_figure_dgp2_3 <- lapply(as.list(rs),
-                            function(r) 
-                              sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N_grid, all_T_grid, nsims, need.sde=F, need.fe=F))
+                            function(r)
+                              sim_dgp2_ls_fe(beta_true, tolerance, r, model, r_N, r_T, nsims, need.sde=F, need.fe=F))
 stat_figure_dgp2_3_ls <- lapply(sim_figure_dgp2_3,
-                                function(sim_data) 
-                                  statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, all_N_grid, all_T_grid, nsims))
+                                function(sim_data)
+                                  statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, r_N, r_T, nsims))
 names(stat_figure_dgp2_3_ls) <- names(sim_figure_dgp2_3) <- paste0("r",rs)
 
 stat_figure_loop_r <- Reduce(function(df, r) bind_rows(df,  cbind(r=r, stat_figure_dgp2_3_ls[[paste0("r",r)]])), rs, init=data.frame(matrix(NA, nrow = 0, ncol = 0)))

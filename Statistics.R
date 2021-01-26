@@ -123,7 +123,7 @@ sim_dgp1_fe <- function(beta_true, all_N, all_T, nsims){
 }
 
 sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde, need.fe){
-  p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
+  p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2))
   # Data frame to save every beta_hat
   df_beta_hat_ls <- data.frame(T_ = rep(all_T, each = nsims),
                             N = rep(all_N, each = nsims),
@@ -183,6 +183,8 @@ statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims){
     N <- all_N[case]
     T_ <- all_T[case]
     row_range <- c((loop_count*nsims-nsims+1) : (loop_count*nsims)) # rows range of beta_hat for N and T_
+    
+    # df_statistic[loop_count, paste0("mean.", 1:p)] <- colMeans(df_beta_hat[row_range,4:(3+p)], na.rm = T)
     
     df_statistic[loop_count, findcol("mean")] <- colMeans(df_beta_hat[row_range,4:(3+p)], na.rm = T)
     df_statistic[loop_count, findcol("bias")] <- 

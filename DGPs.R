@@ -27,22 +27,21 @@ DGP1 <- function(T_, N, beta_true){
   return(list(X_list = X_list, Y_list = Y_list, df=df))
 }
 
-# model5: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + x_i*gamma + w_t*delta + Lambda_i*Factor_t + eps
-# model4: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + Lambda_i*Factor_t + eps
-# model3: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + alpha_i + z_t + eps
-# model2: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + alpha_i + eps
-# model1: y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + eps
+# model4: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + x_i*gamma + w_t*delta + Lambda_i*Factor_t + eps     # p=5, X=(x1,x2,1,x_i,w_t)
+# model3: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + Lambda_i*Factor_t + eps     # p=3, X=(x1,x2,1)
+# model2: y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + z_t + eps     # p=2, X=(x1,x2)
+# model1: y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + eps     # p=2, X=(x1,x2)
 
 # beta_true = c(beta1, beta2, mu, gamma, delta)
 DGP2 <- function(T_, N, beta_true, model){
-  p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
+  p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2))
   # Set parameters
-  if(model %in% c("model5", "model4", "model3", "model2")){
+  if(model %in% c("model4", "model3")){
     mu <- beta_true[3]
   } else{
     mu <- 0
   }
-  if(model == "model5"){
+  if(model == "model4"){
     gamma <- beta_true[4]
     delta <- beta_true[5]
   } else {
@@ -51,15 +50,15 @@ DGP2 <- function(T_, N, beta_true, model){
   iota <- rep(1, 2)
   mu1 <- mu2 <- c1 <- c2 <- 1
   # Generate variables
-  if(model %in% c("model5", "model4")){
+  if(model %in% c("model3", "model4")){
     Factor <- matrix(rnorm(n = 2*T_, mean = 0, sd = 1), nrow=2, ncol=T_)
     Lambda <- matrix(rnorm(n = 2*N, mean = 0, sd = 1), nrow=2, ncol=N)
-  } else if(model == "model3"){
-    Factor <- rbind(matrix(rnorm(n = T_, mean = 0, sd = 1), nrow=1, ncol=T_), 1)
-    Lambda <- rbind(1, matrix(rnorm(n = N, mean = 0, sd = 1), nrow=1, ncol=N))
+  } else if(model == "model2"){
+    Factor <- rbind(1, matrix(rnorm(n = T_, mean = 0, sd = 1), nrow=1, ncol=T_))
+    Lambda <- rbind(matrix(rnorm(n = N, mean = 0, sd = 1), nrow=1, ncol=N), 1)
   } else{
-    Factor <- rbind(0, matrix(1, nrow=1, ncol=T_))
-    Lambda <- rbind(1, matrix(rnorm(n = N, mean = 0, sd = 1), nrow=1, ncol=N))
+    Factor <- matrix(c(1,0), nrow=2, ncol=T_)
+    Lambda <- rbind(matrix(rnorm(n = N, mean = 0, sd = 1), nrow=1, ncol=N), 1)
   }
   Eta_1 <- matrix(rnorm(n = T_*N, mean = 0, sd = 1), nrow=N, ncol=T_)
   Eta_2 <- matrix(rnorm(n = T_*N, mean = 0, sd = 1), nrow=N, ncol=T_)
@@ -98,3 +97,6 @@ DGP2 <- function(T_, N, beta_true, model){
   }
   return(list(df=df, X_list=X_list, Y_list=Y_list))
 }
+
+
+

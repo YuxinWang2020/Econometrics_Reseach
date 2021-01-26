@@ -104,7 +104,7 @@ least_squares <- function(X_list, Y_list, df, tolerance, r){
     Lambda_hat <- calculate_Lambda_hat(X_list, Y_list, beta_hat_0, F_hat, r)
     beta_hat <- calculate_beta_hat(X_list, Y_list, F_hat, Lambda_hat)
     beta_hat_list[[length(beta_hat_list)+1]] <- beta_hat
-    e <- norm(beta_hat - beta_hat_0, type = "F")
+    e <- norm(beta_hat - beta_hat_0, type = "2")
     beta_hat_0 <- beta_hat
   }
   

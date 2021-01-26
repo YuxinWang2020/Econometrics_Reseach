@@ -28,7 +28,7 @@ nsims <- 100
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 r <- 2
-models <- c("model1","model2","model3","model4","model5")
+models <- c("model1","model2","model3","model4")
 sim_data_list1 <- as.list(rep(NA, length(models)))
 names(sim_data_list1) <- models
 table_loop_models_list <- stat_ls_list1 <- stat_fe_list1 <- sim_data_list1
@@ -42,7 +42,7 @@ for(model in models){
   stat_fe <- statistics(sim_data$df_beta_hat_fe, NULL, beta_true, all_N, all_T, nsims)
   stat_fe_list1[[model]] <- stat_fe
 
-  p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
+  p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2))
   table_ls <- stat_ls[c("N","T_", paste0(rep(select_statistics$colName, p), ".",
                                          rep(1:p, each=length(select_statistics$colName))))]
   colnames(table_ls) <- c("N","T_", paste(rep(select_statistics$presentName, p),
@@ -66,7 +66,7 @@ nsims <- 100
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 model <- "model5"
-p <- ifelse(model == "model5", 5, ifelse(model == "model1", 2, 3))
+p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2))
 rs <- c(1:10)
 sim_data_list2 <- as.list(rep(NA, length(rs)))
 names(sim_data_list2) <- paste0("r",rs)
