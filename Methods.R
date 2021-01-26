@@ -30,7 +30,8 @@ OLS_FE2 <- function(df){
   p <- ncol(df) - 3
   formulate <- paste0("y_it ~ ", paste(paste0("x_it_",c(1:p)), collapse = " + "))
   result <- plm(formulate, data=df,index=c("i","t"),
-                effect = "individual",model="within")
+                # effect = "individual",model="within")
+                effect = "twoways",model="within")
   return(list(beta_hat = as.matrix(result$coefficients)))
 }
 
@@ -93,7 +94,8 @@ least_squares <- function(X_list, Y_list, df, tolerance, r){
   # Initialize
   p <- dim(X_list[[1]])[2]
   formulate <- paste0("y_it ~ ", paste0("x_it_",c(1:p)) %>% paste(collapse = " + "), ifelse(p<=2, " + 0", ""))
-  beta_hat_0 <- plm(formulate, data=df, model="pooling")$coefficients %>% as.matrix()
+  beta_hat_0 <- plm(formulate, data=df,effect = "twoways", model="within")$coefficients %>% as.matrix()
+  # beta_hat_0 <- plm(formulate, data=df, model="pooling")$coefficients %>% as.matrix()
   if(p >=3){
     beta_hat_0[c(3,1,2)] <- beta_hat_0[c(1,2,3)]
   }

@@ -86,7 +86,7 @@ ggsave("out/figures/dgp1_rmse_point.png",width=5,height=5,units="in",dpi = 300)
 
 ##### sim for different models & N for ls and fe #####
 all_N <- c(10,20,30,40,50,100)
-T_ <- 50
+T_ <- 100
 all_T <- rep(T_, length(all_N))
 nsims <- 100
 beta_true <- c(1,3,5,2,4)
@@ -106,7 +106,7 @@ for(model in models){
   select.df_beta_hat <- bind_rows(cbind(method="LS", select.df_beta_hat_ls), cbind(method="FE", select.df_beta_hat_fe))
   select.df_beta_hat$N <- as.factor(select.df_beta_hat$N)
   select.df_beta_hat$method <- as.factor(select.df_beta_hat$method)
-
+  
   # jitter point plot for beta_hat in range all_N
   point_plot <- ggplot(data = select.df_beta_hat, aes(x=N)) +
     geom_jitter(aes(y = get(select.col), color = method, shape = method), height=0) +
@@ -127,6 +127,19 @@ for(model in models){
     facet_wrap(~method)
   print(box_plot)
   ggsave(paste0("out/figures/dgp2_",model,"_beta_hat_T",T_,"_box.png"),width=5,height=5,units="in",dpi = 300)
+  ## violin plot for beta_hat in range all_N
+  violin_plot <- ggplot(data = select.df_beta_hat, aes(x=N)) +
+    geom_violin(aes(y = get(select.col), fill = N), color = "black", width=0.9, alpha=0.9) +
+    geom_boxplot(aes(y = get(select.col)), alpha=0.6, fill=I("white"), width=0.06) +
+    geom_hline(yintercept = beta_true[select.coef], color = I("black"), alpha=0.5) +
+    labs(title = paste0("fix T=",T_," (dgp2 ",model,")"), y = paste(coefficients[select.coef], "hat")) +
+    scale_fill_brewer(palette = "Blues") +
+    guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
+    theme_minimal() +
+    facet_wrap(~method)
+  print(violin_plot)
+  ggsave(paste0("out/figures/dgp2_",model,"_beta_hat_T",T_,"_violin.png"),width=10,height=5,units="in",dpi = 300)
+  
 }
 
 
@@ -143,24 +156,24 @@ tolerance <- 0.0001
 r <- 2
 models <- c("model1","model2","model3","model4")
 sim_figure_dgp2_2 <- lapply(as.list(models),
-                            function(model) 
+                            function(model)
                               sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N_grid, all_T_grid, nsims, need.sde=F, need.fe=F))
 stat_figure_dgp2_2_ls <- lapply(sim_figure_dgp2_2,
-                                function(sim_data) 
+                                function(sim_data)
                                   statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, all_N_grid, all_T_grid, nsims))
 names(stat_figure_dgp2_2_ls) <- names(sim_figure_dgp2_2) <- models
 
 for(model in models){
   stat_ls <- stat_figure_dgp2_2_ls[[model]]
-
+  
   #### plot rmse for different N and T ####
   select.col <- paste0("rmse.",select.coef)
-
+  
   # Heatmap (N, T, rmse)
-  heatmap_ls <- ggplot(stat_ls, aes(x=N, y=T_, fill=get(select.col))) + 
+  heatmap_ls <- ggplot(stat_ls, aes(x=N, y=T_, fill=get(select.col))) +
     geom_tile() +
     scale_fill_distiller(palette = "YlOrBr", direction = 1) +
-    labs(title = paste0("rmse (dgp2 ",model,")"), x = "N", y = "T") +
+    labs(title = paste0("ls rmse (dgp2 ",model,")"), x = "N", y = "T") +
     theme_minimal() +
     theme(legend.title = element_blank())
   print(heatmap_ls)
@@ -170,7 +183,7 @@ for(model in models){
   point_plot_N <- ggplot(data = stat_ls, aes(x=N)) +
     geom_jitter(aes(y = get(select.col), color = as.factor(N)), height=0, alpha=0.8) +
     geom_smooth(aes(y = get(select.col)), method = "loess", se=F, color=I("azure4"), formula = "y~x", size=0.5) +
-    labs(title = paste0("rmse (dgp2 ",model,")"), x = "N", y = paste(coefficients[select.coef], "rmse")) +
+    labs(title = paste0("ls rmse (dgp2 ",model,")"), x = "N", y = paste(coefficients[select.coef], "rmse")) +
     scale_color_brewer(palette = "Paired") +
     guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
     theme_minimal()
