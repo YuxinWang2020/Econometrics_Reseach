@@ -98,12 +98,15 @@ calculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
 }
 
 #Step 5:calculate Beta_hat by iterations
-least_squares <- function(X_list, Y_list, df, tolerance, r){
+least_squares <- function(X_list, Y_list, df, tolerance, r, model){
   # Initialize
   p <- dim(X_list[[1]])[2]
   formulate <- paste0("y_it ~ ", paste0("x_it_",c(1:p)) %>% paste(collapse = " + "), ifelse(p<=2, " + 0", ""))
-  # beta_hat_0 <- plm(formulate, data=df,effect = "twoways", model="within")$coefficients %>% as.matrix()
-  beta_hat_0 <- plm(formulate, data=df, model="pooling")$coefficients %>% as.matrix()
+  if(model == "model2"){
+    beta_hat_0 <- plm(formulate, data=df,effect = "twoways", model="within")$coefficients %>% as.matrix()
+  } else{
+    beta_hat_0 <- plm(formulate, data=df, model="pooling")$coefficients %>% as.matrix()
+  }
   if(p >=3){
     beta_hat_0[c(3,1,2)] <- beta_hat_0[c(1,2,3)]
   }

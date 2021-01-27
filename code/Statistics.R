@@ -145,13 +145,17 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, 
     
     for(h in 1:nsims){
       sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model)
-      result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r)
+      result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r, model)
       df_beta_hat_ls[loop_count, 4:(3+p)] <- result_ls$beta_hat
       if(need.fe){
         # X_list_no_singular <- lapply(sim_data$X_list, function(X_i) X_i[,1:2])
         # df_beta_hat_fe[loop_count, 4:5] <- OLS_FE(X_list_no_singular, sim_data$Y_list)$beta_hat
         df_no_singular <- sim_data$df[,1:5]
-        df_beta_hat_fe[loop_count, 4:5] <- OLS_FE2(df_no_singular)$beta_hat
+        if(model == "model1"){
+          df_beta_hat_fe[loop_count, 4:5] <- OLS_FE2(df_no_singular)$beta_hat
+        } else {
+          df_beta_hat_fe[loop_count, 4:5] <- OLS_FE3(df_no_singular)$beta_hat
+        }
       }
       if(need.sde){
         ls_sde <- calculate_sde(sim_data$X_list, sim_data$Y_list, result_ls$beta_hat, result_ls$F_hat, result_ls$Lambda_hat)
