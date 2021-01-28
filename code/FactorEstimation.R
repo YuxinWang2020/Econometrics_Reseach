@@ -133,9 +133,35 @@ r_hat <- function(rmax, X_list, panelty,id){
   }
 }
 
+# Generate data frame to compare criterias
+CompareCriterias <- function(r=3, rmax=8, nsim=50, all_N=c(100,100,200,500), all_T=c(40,60,60,60)){
+  df <- data.frame(N=all_N,T_=all_T, PC1=NA,PC2=NA,PC3=NA,IC1=NA,IC2=NA,IC3=NA)
+  for(case in 1:length(all_N)){
+    N <- all_N[case]
+    T_ <- all_T[case]
+    df$N[case] <- N
+    df$T_[case] <- T_
+    df_sim <- data.frame(PC1=rep(NA, nsim),PC2=NA,PC3=NA,IC1=NA,IC2=NA,IC3=NA)
+    for(i in 1:nsim){
+      X_list <- DGP3(N, T_,r)
+      df_sim$PC1[i] <- r_hat(rmax, X_list,"PC",1)
+      df_sim$PC2[i] <- r_hat(rmax, X_list,"PC",2)
+      df_sim$PC3[i] <- r_hat(rmax, X_list,"PC",3)
+      df_sim$IC1[i] <- r_hat(rmax, X_list,"IC",1)
+      df_sim$IC2[i] <- r_hat(rmax, X_list,"IC",2)
+      df_sim$IC3[i] <- r_hat(rmax, X_list,"IC",3)
+    }
+    df[case, 3:8] <- colMeans(df_sim)
+  }
+  return(df)
+}
+df <- CompareCriterias()
+df
+write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = FALSE)
+
 
 # Generate data frame to compare criterias
-CompareCriterias <- function(rmax=8,nsim=50){
+CompareCriterias_DGP2 <- function(rmax=8,nsim=50){
   all_N <- c(100,100,100,100,10,20,50)
   all_T <- c(10,20,50,100,100,100,100)
   model="model4"
@@ -166,9 +192,9 @@ CompareCriterias <- function(rmax=8,nsim=50){
   }
   return(df)
 }
-df <- CompareCriterias()
-df
-write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = FALSE)
+df_dgp2 <- CompareCriterias_DGP2()
+df_dgp2
+write.csv(df_dgp2, file = "../out/tables/determine_num_of_factors_dgp2.csv", row.names = FALSE)
 
 
 ## caculate r_hat
