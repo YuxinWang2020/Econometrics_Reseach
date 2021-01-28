@@ -5,6 +5,8 @@ if (!require("plm")) install.packages("plm")
 
 set.seed(123)
 
+source("DGPs.R")
+source("Methods.R")
 #######################
 #####     DGP     #####
 #######################
@@ -133,7 +135,13 @@ r_hat <- function(rmax, X_list, panelty,id){
 
 
 # Generate data frame to compare criterias
-CompareCriterias <- function(r=3, rmax=8, nsim=50, all_N=c(100,100,200,500), all_T=c(40,60,60,60)){
+CompareCriterias <- function(rmax=8,nsim=50){
+  all_N <- c(100,100,100,100,10,20,50)
+  all_T <- c(10,20,50,100,100,100,100)
+  model="model4"
+  beta_true=c(1,3,5,4,2)
+  tolerance=0.0001
+  r0=8
   df <- data.frame(N=all_N,T_=all_T, PC1=NA,PC2=NA,PC3=NA,IC1=NA,IC2=NA,IC3=NA)
   for(case in 1:length(all_N)){
     N <- all_N[case]
@@ -142,13 +150,17 @@ CompareCriterias <- function(r=3, rmax=8, nsim=50, all_N=c(100,100,200,500), all
     df$T_[case] <- T_
     df_sim <- data.frame(PC1=rep(NA, nsim),PC2=NA,PC3=NA,IC1=NA,IC2=NA,IC3=NA)
     for(i in 1:nsim){
-      X_list <- DGP3(N, T_,r)
-      df_sim$PC1[i] <- r_hat(rmax, X_list,"PC",1)
-      df_sim$PC2[i] <- r_hat(rmax, X_list,"PC",2)
-      df_sim$PC3[i] <- r_hat(rmax, X_list,"PC",3)
-      df_sim$IC1[i] <- r_hat(rmax, X_list,"IC",1)
-      df_sim$IC2[i] <- r_hat(rmax, X_list,"IC",2)
-      df_sim$IC3[i] <- r_hat(rmax, X_list,"IC",3)
+      sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model)
+      result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r0, model)
+      beta_hat <- result_ls$beta_hat
+      U_list <- mapply(function(Y_i, X_i) {Y_i - X_i %*% beta_hat}, sim_data$Y_list, sim_data$X_list, SIMPLIFY=F)
+      
+      df_sim$PC1[i] <- r_hat(rmax, U_list,"PC",1)
+      df_sim$PC2[i] <- r_hat(rmax, U_list,"PC",2)
+      df_sim$PC3[i] <- r_hat(rmax, U_list,"PC",3)
+      df_sim$IC1[i] <- r_hat(rmax, U_list,"IC",1)
+      df_sim$IC2[i] <- r_hat(rmax, U_list,"IC",2)
+      df_sim$IC3[i] <- r_hat(rmax, U_list,"IC",3)
     }
     df[case, 3:8] <- colMeans(df_sim)
   }
@@ -156,12 +168,10 @@ CompareCriterias <- function(r=3, rmax=8, nsim=50, all_N=c(100,100,200,500), all
 }
 df <- CompareCriterias()
 df
-# write.csv(df, file = "out/tables/determine_num_of_factors.csv", row.names = FALSE)
+write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = FALSE)
 
 
 ## caculate r_hat
-source("DGPs.R")
-source("Methods.R")
 
 caculate_r_hat <- function(beta_true=c(1,3,5,2,4),tolerance=0.0001,r0=8,rmax=10,nsim=50,T_=100,N=100,model="model4"){
   df <- data.frame(PC1=rep(NA, nsim),IC1=NA)

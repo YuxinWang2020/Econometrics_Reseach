@@ -9,9 +9,9 @@ enableJIT(3)
 setCompilerOptions(optimize=3)
 
 # create dir
-dir.create("out", showWarnings = F)
-dir.create("out/tables", showWarnings = F)
-dir.create("out/figures", showWarnings = F)
+dir.create("../out", showWarnings = F)
+dir.create("../out/tables", showWarnings = F)
+dir.create("../out/figures", showWarnings = F)
 
 set.seed(123)
 source("DGPs.R")
@@ -55,7 +55,7 @@ for(model in models){
 
   table_loop_models <- bind_rows(cbind(method="Least Squares", table_ls),
                              cbind(method="Fixed Effects", table_fe))
-  write.csv(table_loop_models, file = paste0("out/tables/table_",model,".csv"), row.names = FALSE)
+  write.csv(table_loop_models, file = paste0("../out/tables/table_",model,".csv"), row.names = FALSE)
   table_loop_models_list[[model]] <- table_loop_models
 }
 
@@ -86,5 +86,5 @@ for(i in 1:length(rs)){
                                           rep(coefficients[1:p], each=length(select_statistics$presentName))))
   table_loop_r <- bind_rows(table_loop_r,  cbind(r=r, table_ls))
 }
-write.csv(table_loop_r, file = "out/tables/table_loop_r.csv", row.names = FALSE)
+write.csv(table_loop_r, file = "../out/tables/table_loop_r.csv", row.names = FALSE)
 

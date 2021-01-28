@@ -50,7 +50,7 @@ violin_plot <- ggplot(data = select.df_beta_hat, aes(x=N)) +
   guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
   theme_minimal()
 print(violin_plot)
-ggsave(paste0("out/figures/dgp1_beta_hat_T",T_,"_violin.png"),width=5,height=5,units="in",dpi = 300)
+ggsave(paste0("../out/figures/dgp1_beta_hat_T",T_,"_violin.png"),width=5,height=5,units="in",dpi = 300)
 
 #### sim for different N & T ####
 all_N <- seq(10,100,10)
@@ -78,13 +78,13 @@ point_plot_N <- ggplot(data = stat_figure_dgp1_2, aes(x=N)) +
   guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
   theme_minimal()
 print(point_plot_N)
-ggsave("out/figures/dgp1_mse_point.png",width=5,height=5,units="in",dpi = 300)
+ggsave("../out/figures/dgp1_mse_point.png",width=5,height=5,units="in",dpi = 300)
 
 
 
 #### GDP2 ####
 
-##### sim for different models & N for ls and fe #####
+##### sim for different models & N for interactive-effect estimator and within estimator #####
 all_N <- c(10,20,30,40,50,100)
 T_ <- 100
 all_T <- rep(T_, length(all_N))
@@ -103,7 +103,7 @@ for(model in models){
   select.col <- paste0("beta.",select.coef)
   select.df_beta_hat_ls <- select(sim_data$df_beta_hat_ls, c(1:3, select.col))
   select.df_beta_hat_fe <- select(sim_data$df_beta_hat_fe, c(1:3, select.col))
-  select.df_beta_hat <- bind_rows(cbind(method="LS", select.df_beta_hat_ls), cbind(method="FE", select.df_beta_hat_fe))
+  select.df_beta_hat <- bind_rows(cbind(method="interactive-effect estimator", select.df_beta_hat_ls), cbind(method="within estimator", select.df_beta_hat_fe))
   select.df_beta_hat$N <- as.factor(select.df_beta_hat$N)
   select.df_beta_hat$method <- as.factor(select.df_beta_hat$method)
   
@@ -111,40 +111,40 @@ for(model in models){
   point_plot <- ggplot(data = select.df_beta_hat, aes(x=N)) +
     geom_jitter(aes(y = get(select.col), color = method, shape = method), height=0) +
     geom_hline(yintercept = beta_true[select.coef], color = I("black"), alpha=0.5) +
-    labs(title = paste0("fix T=",T_," (dgp2 ",model,")"), x = "N", y = paste(coefficients[select.coef], "hat")) +
+    labs(title = paste0("fix T=",T_), x = "N", y = paste(coefficients[select.coef], "hat")) +
     scale_color_brewer(palette = "Set1") +
     theme_minimal()
   print(point_plot)
-  ggsave(paste0("out/figures/dgp2_",model,"_beta_hat_T",T_,"_point.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_beta_hat_T",T_,"_point.png"),width=7,height=5,units="in",dpi = 300)
   ## box plot for beta_hat in range all_N
   box_plot <- ggplot(data = select.df_beta_hat, aes(x=N)) +
     geom_boxplot(aes(y=get(select.col), fill = N), alpha=0.8, color=I("black"), width=0.6) +
     geom_hline(yintercept = beta_true[select.coef], color = I("black"), alpha=0.5) +
-    labs(title = paste0("fix T=",T_," (dgp2 ",model,")"), y = paste(coefficients[select.coef], "hat")) +
+    labs(title = paste0("fix T=",T_), y = paste(coefficients[select.coef], "hat")) +
     scale_fill_brewer(palette = "Blues") +
     guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
     theme_minimal() +
     facet_wrap(~method)
   print(box_plot)
-  ggsave(paste0("out/figures/dgp2_",model,"_beta_hat_T",T_,"_box.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_beta_hat_T",T_,"_box.png"),width=5,height=5,units="in",dpi = 300)
   ## violin plot for beta_hat in range all_N
   violin_plot <- ggplot(data = select.df_beta_hat, aes(x=N)) +
     geom_violin(aes(y = get(select.col), fill = N), color = "black", width=0.9, alpha=0.9) +
     geom_boxplot(aes(y = get(select.col)), alpha=0.6, fill=I("white"), width=0.06) +
     geom_hline(yintercept = beta_true[select.coef], color = I("black"), alpha=0.5) +
-    labs(title = paste0("fix T=",T_," (dgp2 ",model,")"), y = paste(coefficients[select.coef], "hat")) +
+    labs(title = paste0("fix T=",T_), y = paste(coefficients[select.coef], "hat")) +
     scale_fill_brewer(palette = "Blues") +
     guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
     theme_minimal() +
     facet_wrap(~method)
   print(violin_plot)
-  ggsave(paste0("out/figures/dgp2_",model,"_beta_hat_T",T_,"_violin.png"),width=10,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_beta_hat_T",T_,"_violin.png"),width=10,height=5,units="in",dpi = 300)
   
 }
 
 
 
-##### sim for different models & N & T for ls and fe #####
+##### sim for different models & N & T for interactive-effect estimator and within estimator #####
 all_N <- seq(10,100,10)
 all_T <- seq(10,100,10)
 grid <- meshgrid(all_N, all_T)
@@ -177,43 +177,43 @@ for(model in models){
   heatmap_ls <- ggplot(stat_ls, aes(x=N, y=T_, fill=get(select.col))) +
     geom_tile() +
     scale_fill_distiller(palette = "YlOrBr", direction = 1) +
-    labs(title = paste0("ls mse (dgp2 ",model,")"), x = "N", y = "T") +
+    labs(title = paste0("interactive-effect estimator mse"), x = "N", y = "T") +
     theme_minimal() +
     theme(legend.title = element_blank())
   print(heatmap_ls)
-  ggsave(paste0("out/figures/dgp2_",model,"_mse_heatmap_ls.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_mse_heatmap_ls.png"),width=5,height=5,units="in",dpi = 300)
   
   # Heatmap fe (N, T, rmse)
   heatmap_fe <- ggplot(stat_fe, aes(x=N, y=T_, fill=get(select.col))) +
     geom_tile() +
     scale_fill_distiller(palette = "YlOrBr", direction = 1) +
-    labs(title = paste0("fe mse (dgp2 ",model,")"), x = "N", y = "T") +
+    labs(title = paste0("within estimator mse"), x = "N", y = "T") +
     theme_minimal() +
     theme(legend.title = element_blank())
   print(heatmap_fe)
-  ggsave(paste0("out/figures/dgp2_",model,"_mse_heatmap_fe.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_mse_heatmap_fe.png"),width=5,height=5,units="in",dpi = 300)
   
   # point plot ls
   point_plot_N_ls <- ggplot(data = stat_ls, aes(x=N)) +
     geom_jitter(aes(y = get(select.col), color = as.factor(N)), height=0, alpha=0.8) +
     geom_smooth(aes(y = get(select.col)), method = "loess", se=F, color=I("azure4"), formula = "y~x", size=0.5) +
-    labs(title = paste0("ls mse (dgp2 ",model,")"), x = "N", y = paste(coefficients[select.coef], "mse")) +
+    labs(title = paste0("interactive-effect estimator"), x = "N", y = paste(coefficients[select.coef], "mse")) +
     scale_color_brewer(palette = "Paired") +
     guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
     theme_minimal()
   print(point_plot_N_ls)
-  ggsave(paste0("out/figures/dgp2_",model,"_mse_point_ls.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_mse_point_ls.png"),width=5,height=5,units="in",dpi = 300)
   
   # point plot fe
   point_plot_N_fe <- ggplot(data = stat_fe, aes(x=N)) +
     geom_jitter(aes(y = get(select.col), color = as.factor(N)), height=0, alpha=0.8) +
     geom_smooth(aes(y = get(select.col)), method = "loess", se=F, color=I("azure4"), formula = "y~x", size=0.5) +
-    labs(title = paste0("fe mse (dgp2 ",model,")"), x = "N", y = paste(coefficients[select.coef], "mse")) +
+    labs(title = paste0("within estimator"), x = "N", y = paste(coefficients[select.coef], "mse")) +
     scale_color_brewer(palette = "Paired") +
     guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
     theme_minimal()
   print(point_plot_N_fe)
-  ggsave(paste0("out/figures/dgp2_",model,"_mse_point_fe.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_mse_point_fe.png"),width=5,height=5,units="in",dpi = 300)
 }
 
 ##### sim for different r for ls #####
@@ -247,7 +247,7 @@ point_plot_r <- ggplot(data = filter(stat_figure_loop_r,r!=1), aes(x=r)) +
   guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
   theme_minimal()
 print(point_plot_r)
-ggsave(paste0("out/figures/dgp2_r_mse_point.png"),width=5,height=5,units="in",dpi = 300)
+ggsave(paste0("../out/figures/dgp2_r_mse_point.png"),width=5,height=5,units="in",dpi = 300)
 # box plot for beta_hat
 select.col <- paste0("beta.",select.coef)
 box_plot <- ggplot(data = beta_hat_figure_loop_r, aes(x=as.factor(r))) +
@@ -258,4 +258,4 @@ box_plot <- ggplot(data = beta_hat_figure_loop_r, aes(x=as.factor(r))) +
   guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
   theme_minimal()
 print(box_plot)
-ggsave(paste0("out/figures/dgp2_r_beta_box.png"),width=5,height=5,units="in",dpi = 300)
+ggsave(paste0("../out/figures/dgp2_r_beta_box.png"),width=5,height=5,units="in",dpi = 300)
