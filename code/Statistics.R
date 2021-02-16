@@ -1,3 +1,6 @@
+library(foreach)
+if (!require("doParallel")) install.packages("doParallel")
+
 ##########################
 #####     Statistics     #####
 ##########################
@@ -101,69 +104,72 @@ mean_value <- function(est_list){
 #####  Simulation  #####
 
 sim_dgp1_fe <- function(beta_true, all_N, all_T, nsims){
-  # Data frame to save every beta_hat
-  p <- length(beta_true)
-  df_beta_hat_fe <- data.frame(T_ = rep(all_T, each = nsims),
-                               N = rep(all_N, each = nsims),
-                               sim = rep(1:nsims, times = length(all_N)),
-                               beta = matrix(NA,ncol=p))
-  # Loop over all_N and all_T and c(1:nsims) for simulation
-  loop_count <- 1
-  for(case in 1:length(all_N)){
-    N <- all_N[case]
-    T_ <- all_T[case]
-    for(h in 1:nsims){
-      sim_data <- DGP1(T_=T_, N=N, beta_true=beta_true)
-      result_fe <- OLS_FE(sim_data$X_list, sim_data$Y_list)
-      df_beta_hat_fe[loop_count, 4:(3+p)] <- result_fe$beta_hat
-      loop_count <- loop_count + 1
-    }
+  # init for parallel computing
+  cl<-makeCluster(detectCores()) # create cluster with all cpu cores
+  registerDoParallel(cl) # register cluster for DoParallel
+  func <- function(case){ # function to run in cluster
+    T_ <- T_N_sim$T_[case]
+    N <- T_N_sim$N[case]
+    sim_data <- DGP1(T_=T_, N=N, beta_true=beta_true)
+    result_fe <- OLS_FE(sim_data$X_list, sim_data$Y_list)
+    return(c(T_N_sim[case,], result_fe$beta_hat)) # combine results into a vector
   }
+  clusterExport(cl=cl, varlist=c("DGP1", "OLS_FE"), envir=environment()) # export vars to cluster environment
+  
+  # Loop over all_N and all_T and c(1:nsims) for simulation
+  T_N_sim <- data.frame(T_ = rep(all_T, each=nsims),
+                        N = rep(all_N, each=nsims),
+                        sim = rep(1:nsims, times=length(all_T)))
+  # Loop over T_N_sim, use `rbind` to combine results from every simulation
+  df_beta_hat_fe <- foreach(case=1:nrow(T_N_sim), .combine='rbind') %dopar%
+    func(case) %>% as.data.frame() # columns is : T_, N, sim, beta.1, beta.2, beta...
+  
+  stopImplicitCluster() # stop cluster
+  colnames(df_beta_hat_fe) <- c("T_", "N", "sim", paste0("beta.", 1:length(beta_true)))
   return(list(df_beta_hat_fe=df_beta_hat_fe))
 }
 
 sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde, need.fe){
-  p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2))
-  # Data frame to save every beta_hat
-  df_beta_hat_ls <- data.frame(T_ = rep(all_T, each = nsims),
-                            N = rep(all_N, each = nsims),
-                            sim = rep(1:nsims, times = length(all_N)),
-                            beta = matrix(NA,ncol=p))
-  df_beta_hat_fe <- data.frame(T_ = rep(all_T, each = nsims),
-                            N = rep(all_N, each = nsims),
-                            sim = rep(1:nsims, times = length(all_N)),
-                            beta = matrix(NA,ncol=p))
-  df_sde <- data.frame(T_ = rep(all_T, each = nsims),
-                       N = rep(all_N, each = nsims),
-                       sim = rep(1:nsims, times = length(all_N)),
-                       sde = matrix(NA,ncol=p))
-  # Loop over all_N and all_T and c(1:nsims) for simulation
-  loop_count <- 1
-  for(case in 1:length(all_N)){
-    N <- all_N[case]
-    T_ <- all_T[case]
-    
-    for(h in 1:nsims){
-      sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model)
-      result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r, model)
-      df_beta_hat_ls[loop_count, 4:(3+p)] <- result_ls$beta_hat
-      if(need.fe){
-        # X_list_no_singular <- lapply(sim_data$X_list, function(X_i) X_i[,1:2])
-        # df_beta_hat_fe[loop_count, 4:5] <- OLS_FE(X_list_no_singular, sim_data$Y_list)$beta_hat
-        df_no_singular <- sim_data$df[,1:5]
-        if(model == "model1"){
-          df_beta_hat_fe[loop_count, 4:5] <- OLS_FE2(df_no_singular)$beta_hat
-        } else {
-          df_beta_hat_fe[loop_count, 4:5] <- OLS_FE3(df_no_singular)$beta_hat
-        }
-      }
-      if(need.sde){
-        ls_sde <- calculate_sde(sim_data$X_list, sim_data$Y_list, result_ls$beta_hat, result_ls$F_hat, result_ls$Lambda_hat)
-        df_sde[loop_count, 4:(3+p)] <- sqrt(diag(ls_sde))
-      }
-      loop_count <- loop_count + 1
+  # init for parallel computing
+  cl<-makeCluster(detectCores()) # create cluster with all cpu cores
+  registerDoParallel(cl) # register cluster for DoParallel
+  func <- function(case){ # function to run in cluster
+    T_ <- T_N_sim$T_[case]
+    N <- T_N_sim$N[case]
+    sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model)
+    result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r, model)
+    beta_hat_ls <- result_ls$beta_hat
+    beta_hat_fe <- rep(NA, 2)
+    if(need.fe){
+      df_no_singular <- sim_data$df[,1:5] # select T,N,y,x1,x2 from sim_data$df
+      # if model1, use OLS_FE2
+      beta_hat_fe <- ifelse(model == "model1", OLS_FE2(df_no_singular)$beta_hat, OLS_FE3(df_no_singular)$beta_hat)
     }
+    ls_sde <- rep(NA, p)
+    if(need.sde){
+      ls_sde <- calculate_sde(sim_data$X_list, sim_data$Y_list, result_ls$beta_hat, result_ls$F_hat, result_ls$Lambda_hat)
+      ls_sde <- sqrt(diag(ls_sde))
+    }
+    return(c(T_N_sim[case,], beta_hat_ls, beta_hat_fe, ls_sde))
   }
+  clusterExport(cl=cl, varlist=c(ls(.GlobalEnv)), envir=environment()) # export all vars to cluster environment
+  
+  p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2)) # p is length of X
+  # Loop over all_N and all_T and c(1:nsims) for simulation
+  T_N_sim <- data.frame(T_ = rep(all_T, each=nsims),
+                        N = rep(all_N, each=nsims),
+                        sim = rep(1:nsims, times=length(all_T)))
+  # Loop over T_N_sim, use `rbind` to combine results from every simulation
+  beta.ls_beta.fe_ls.sde <- foreach(case=1:nrow(T_N_sim), .combine='rbind', .packages=c("plm", "dplyr")) %dopar%
+    func(case) %>% as.data.frame() # columns is : T_, N, sim, beta_hat_ls(length=p), beta_hat_fe(length=2), ls_sde(length=p)
+  stopImplicitCluster() # stop cluster
+  
+  df_beta_hat_ls <- beta.ls_beta.fe_ls.sde[, c(1:3, 4:(3+p))]
+  df_beta_hat_fe <- beta.ls_beta.fe_ls.sde[, c(1:3, (4+p):(5+p))]
+  df_sde <- beta.ls_beta.fe_ls.sde[, c(1:3, (6+p):(5+2*p))]
+  colnames(df_beta_hat_ls) <- c("T_", "N", "sim", paste0("beta.", 1:p))
+  colnames(df_beta_hat_fe) <- c("T_", "N", "sim", paste0("beta.", 1:2))
+  colnames(df_sde) <- c("T_", "N", "sim", paste0("sde.", 1:p))
   return(list(df_beta_hat_ls=df_beta_hat_ls, df_sde=df_sde, df_beta_hat_fe=df_beta_hat_fe))
 }
 
