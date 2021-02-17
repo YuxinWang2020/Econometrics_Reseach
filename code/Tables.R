@@ -5,13 +5,12 @@ if (!require("MASS")) install.packages("MASS")
 if (!require("plm")) install.packages("plm")
 # use JIT
 library(compiler)
-enableJIT(3)
 setCompilerOptions(optimize=3)
+enableJIT(3)
 
 # create dir
 dir.create("../out", showWarnings = F)
 dir.create("../out/tables", showWarnings = F)
-dir.create("../out/figures", showWarnings = F)
 
 set.seed(123)
 source("DGPs.R")
@@ -24,7 +23,7 @@ coefficients <- c("beta1", "beta2", "mu", "gamma", "delta")
 ##### sim1: Loop models & N & T for ls and fe #####
 all_N <- c(100,100,100,100,10,20,50)
 all_T <- c(10,20,50,100,100,100,100)
-nsims <- 100
+nsims <- 1000
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 r <- 2
@@ -62,10 +61,10 @@ for(model in models){
 #####  Loop for r ##### 
 r_N <- c(50)
 r_T <- c(50)
-nsims <- 100
+nsims <- 1000
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
-model <- "model5"
+model <- "model4"
 p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2))
 rs <- c(1:10)
 sim_data_list2 <- as.list(rep(NA, length(rs)))
@@ -88,3 +87,5 @@ for(i in 1:length(rs)){
 }
 write.csv(table_loop_r, file = "../out/tables/table_loop_r.csv", row.names = FALSE)
 
+
+save.image(file = "../out/tables/tables.RData")

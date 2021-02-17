@@ -1,9 +1,13 @@
-# rm(list = ls())
+rm(list = ls())
 if (!require("MASS")) install.packages("MASS")
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("plm")) install.packages("plm")
 
 set.seed(123)
+
+# create dir
+dir.create("../out", showWarnings = F)
+dir.create("../out/tables", showWarnings = F)
 
 source("DGPs.R")
 source("Methods.R")
@@ -134,7 +138,7 @@ r_hat <- function(rmax, X_list, panelty,id){
 }
 
 # Generate data frame to compare criterias
-CompareCriterias <- function(r=3, rmax=8, nsim=50, all_N=c(100,100,200,500), all_T=c(40,60,60,60)){
+CompareCriterias <- function(r=3, rmax=8, nsim=1000, all_N=c(100,100,200,500,1000), all_T=c(40,60,60,60,60)){
   df <- data.frame(N=all_N,T_=all_T, PC1=NA,PC2=NA,PC3=NA,IC1=NA,IC2=NA,IC3=NA)
   for(case in 1:length(all_N)){
     N <- all_N[case]
@@ -161,7 +165,7 @@ write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = F
 
 
 # Generate data frame to compare criterias
-CompareCriterias_DGP2 <- function(rmax=8,nsim=50){
+CompareCriterias_DGP2 <- function(rmax=8,nsim=1000){
   all_N <- c(100,100,100,100,10,20,50)
   all_T <- c(10,20,50,100,100,100,100)
   model="model4"
@@ -199,7 +203,7 @@ write.csv(df_dgp2, file = "../out/tables/determine_num_of_factors_dgp2.csv", row
 
 ## caculate r_hat
 
-caculate_r_hat <- function(beta_true=c(1,3,5,2,4),tolerance=0.0001,r0=8,rmax=10,nsim=50,T_=100,N=100,model="model4"){
+caculate_r_hat <- function(beta_true=c(1,3,5,2,4),tolerance=0.0001,r0=8,rmax=10,nsim=1000,T_=100,N=100,model="model4"){
   df <- data.frame(PC1=rep(NA, nsim),IC1=NA)
   for (i in 1:nsim) {
     sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model)
@@ -212,5 +216,8 @@ caculate_r_hat <- function(beta_true=c(1,3,5,2,4),tolerance=0.0001,r0=8,rmax=10,
   }
   return(df)
 }
-# df <- caculate_r_hat(r0=8, rmax=10, nsim=10)
+# df <- caculate_r_hat(r0=8, rmax=10, nsim=1000)
 # colMeans(df)
+
+
+save.image(file = "../out/tables/factorEstimation.RData")

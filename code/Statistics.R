@@ -25,6 +25,7 @@ rmse <- function(est_df, real_para){
   real_para <- real_para[1:ncol(est_df)]
   residual <- t(t(est_df) - real_para) # est_df substract real_para by row
   rmse <- colMeans(residual^2)
+  rmse <- sqrt(rmse)
   return(rmse)
 }
 
@@ -112,7 +113,7 @@ sim_dgp1_fe <- function(beta_true, all_N, all_T, nsims){
     N <- T_N_sim$N[case]
     sim_data <- DGP1(T_=T_, N=N, beta_true=beta_true)
     result_fe <- OLS_FE(sim_data$X_list, sim_data$Y_list)
-    return(c(T_N_sim[case,], result_fe$beta_hat)) # combine results into a vector
+    return(unlist(c(T_N_sim[case,], result_fe$beta_hat))) # combine results into a vector
   }
   clusterExport(cl=cl, varlist=c("DGP1", "OLS_FE"), envir=environment()) # export vars to cluster environment
   
@@ -143,14 +144,20 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, 
     if(need.fe){
       df_no_singular <- sim_data$df[,1:5] # select T,N,y,x1,x2 from sim_data$df
       # if model1, use OLS_FE2
-      beta_hat_fe <- ifelse(model == "model1", OLS_FE2(df_no_singular)$beta_hat, OLS_FE3(df_no_singular)$beta_hat)
+      if(model == "model1"){
+        fe_result <- OLS_FE2(df_no_singular)
+        beta_hat_fe <- fe_result$beta_hat
+      } else {
+        fe_result <- OLS_FE2(df_no_singular)
+        beta_hat_fe <- fe_result$beta_hat
+      }
     }
     ls_sde <- rep(NA, p)
     if(need.sde){
       ls_sde <- calculate_sde(sim_data$X_list, sim_data$Y_list, result_ls$beta_hat, result_ls$F_hat, result_ls$Lambda_hat)
       ls_sde <- sqrt(diag(ls_sde))
     }
-    return(c(T_N_sim[case,], beta_hat_ls, beta_hat_fe, ls_sde))
+    return(unlist(c(T_N_sim[case,], beta_hat_ls, beta_hat_fe, ls_sde)))
   }
   clusterExport(cl=cl, varlist=c(ls(.GlobalEnv)), envir=environment()) # export all vars to cluster environment
   

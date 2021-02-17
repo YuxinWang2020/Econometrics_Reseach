@@ -10,8 +10,12 @@ if (!require("akima")) install.packages("akima")
 if (!require("plotly")) install.packages("plotly")
 # use JIT
 library(compiler)
-enableJIT(3)
 setCompilerOptions(optimize=3)
+enableJIT(3)
+
+# create dir
+dir.create("../out", showWarnings = F)
+dir.create("../out/figures", showWarnings = F)
 
 set.seed(123)
 source("DGPs.R")
@@ -27,7 +31,7 @@ select.coef <- 1 # choose 1~5 in coefficients
 all_N <- c(10,20,30,40,50,100)
 T_ <- 50
 all_T <- rep(T_, length(all_N))
-nsims <- 100
+nsims <- 1000
 beta_true <- c(1,3,5,2,4)
 sim_figure_dgp1_1 <- sim_dgp1_fe(beta_true, all_N, all_T, nsims)
 stat_figure_dgp1_1 <- statistics(sim_figure_dgp1_1$df_beta_hat_fe, NULL, beta_true, all_N, all_T, nsims)
@@ -59,7 +63,7 @@ grid <- meshgrid(all_N, all_T)
 all_N <- as.vector(grid$x)
 all_T <- as.vector(grid$y)
 
-nsims <- 50
+nsims <- 100
 beta_true <- c(1,3,5,2,4)
 sim_figure_dgp1_2 <- sim_dgp1_fe(beta_true, all_N, all_T, nsims)
 stat_figure_dgp1_2 <- statistics(sim_figure_dgp1_2$df_beta_hat_fe, NULL, beta_true, all_N, all_T, nsims)
@@ -73,12 +77,12 @@ with(im,image(x,y,z, xlab = "T_", ylab = "N"))
 point_plot_N <- ggplot(data = stat_figure_dgp1_2, aes(x=N)) +
   geom_jitter(aes(y = get(select.col), color = as.factor(N)), height=0, alpha=0.8) +
   geom_smooth(aes(y = get(select.col)), method = "loess", se=F, color=I("azure4"), formula = "y~x", size=0.5) +
-  labs(title = paste0("fix T=",T_," (dgp1)"), x = "N", y = paste(coefficients[select.coef], "mse")) +
+  labs(title = paste0("fix T=",T_," (dgp1)"), x = "N", y = paste(coefficients[select.coef], "rmse")) +
   scale_color_brewer(palette = "Paired") +
   guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
   theme_minimal()
 print(point_plot_N)
-ggsave("../out/figures/dgp1_mse_point.png",width=5,height=5,units="in",dpi = 300)
+ggsave("../out/figures/dgp1_rmse_point.png",width=5,height=5,units="in",dpi = 300)
 
 
 
@@ -88,7 +92,7 @@ ggsave("../out/figures/dgp1_mse_point.png",width=5,height=5,units="in",dpi = 300
 all_N <- c(10,20,30,40,50,100)
 T_ <- 100
 all_T <- rep(T_, length(all_N))
-nsims <- 100
+nsims <- 1000
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 r <- 2
@@ -150,7 +154,7 @@ all_T <- seq(10,100,10)
 grid <- meshgrid(all_N, all_T)
 all_N_grid <- as.vector(grid$x)
 all_T_grid <- as.vector(grid$y)
-nsims <- 50
+nsims <- 100
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 r <- 2
@@ -177,49 +181,49 @@ for(model in models){
   heatmap_ls <- ggplot(stat_ls, aes(x=N, y=T_, fill=get(select.col))) +
     geom_tile() +
     scale_fill_distiller(palette = "YlOrBr", direction = 1) +
-    labs(title = paste0("interactive-effect estimator mse"), x = "N", y = "T") +
+    labs(title = paste0("interactive-effect estimator rmse"), x = "N", y = "T") +
     theme_minimal() +
     theme(legend.title = element_blank())
   print(heatmap_ls)
-  ggsave(paste0("../out/figures/dgp2_",model,"_mse_heatmap_ls.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_rmse_heatmap_ls.png"),width=5,height=5,units="in",dpi = 300)
   
   # Heatmap fe (N, T, rmse)
   heatmap_fe <- ggplot(stat_fe, aes(x=N, y=T_, fill=get(select.col))) +
     geom_tile() +
     scale_fill_distiller(palette = "YlOrBr", direction = 1) +
-    labs(title = paste0("within estimator mse"), x = "N", y = "T") +
+    labs(title = paste0("within estimator rmse"), x = "N", y = "T") +
     theme_minimal() +
     theme(legend.title = element_blank())
   print(heatmap_fe)
-  ggsave(paste0("../out/figures/dgp2_",model,"_mse_heatmap_fe.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_rmse_heatmap_fe.png"),width=5,height=5,units="in",dpi = 300)
   
   # point plot ls
   point_plot_N_ls <- ggplot(data = stat_ls, aes(x=N)) +
     geom_jitter(aes(y = get(select.col), color = as.factor(N)), height=0, alpha=0.8) +
     geom_smooth(aes(y = get(select.col)), method = "loess", se=F, color=I("azure4"), formula = "y~x", size=0.5) +
-    labs(title = paste0("interactive-effect estimator"), x = "N", y = paste(coefficients[select.coef], "mse")) +
+    labs(title = paste0("interactive-effect estimator"), x = "N", y = paste(coefficients[select.coef], "rmse")) +
     scale_color_brewer(palette = "Paired") +
     guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
     theme_minimal()
   print(point_plot_N_ls)
-  ggsave(paste0("../out/figures/dgp2_",model,"_mse_point_ls.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_rmse_point_ls.png"),width=5,height=5,units="in",dpi = 300)
   
   # point plot fe
   point_plot_N_fe <- ggplot(data = stat_fe, aes(x=N)) +
     geom_jitter(aes(y = get(select.col), color = as.factor(N)), height=0, alpha=0.8) +
     geom_smooth(aes(y = get(select.col)), method = "loess", se=F, color=I("azure4"), formula = "y~x", size=0.5) +
-    labs(title = paste0("within estimator"), x = "N", y = paste(coefficients[select.coef], "mse")) +
+    labs(title = paste0("within estimator"), x = "N", y = paste(coefficients[select.coef], "rmse")) +
     scale_color_brewer(palette = "Paired") +
     guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
     theme_minimal()
   print(point_plot_N_fe)
-  ggsave(paste0("../out/figures/dgp2_",model,"_mse_point_fe.png"),width=5,height=5,units="in",dpi = 300)
+  ggsave(paste0("../out/figures/dgp2_",model,"_rmse_point_fe.png"),width=5,height=5,units="in",dpi = 300)
 }
 
 ##### sim for different r for ls #####
 r_N <- c(50)
 r_T <- c(50)
-nsims <- 100
+nsims <- 1000
 beta_true <- c(1,3,5,2,4)
 tolerance <- 0.0001
 model <- "model4"
@@ -242,12 +246,12 @@ select.col <- paste0("rmse.",select.coef)
 point_plot_r <- ggplot(data = filter(stat_figure_loop_r,r!=1), aes(x=r)) +
   geom_jitter(aes(y = get(select.col), color = as.factor(r)),height=0,width=0, alpha=0.8) +
   geom_smooth(aes(y = get(select.col)), method = "loess", se=F, color=I("azure4"), formula = "y~x", size=0.5) +
-  labs(title = paste0("fix N=",r_N," T=",r_T," (dgp2 ",model,")"), x = "r", y = paste(coefficients[select.coef], "mse")) +
+  labs(title = paste0("fix N=",r_N," T=",r_T," (dgp2 ",model,")"), x = "r", y = paste(coefficients[select.coef], "rmse")) +
   scale_color_brewer(palette = "Paired") +
   guides(fill=FALSE, alpha=FALSE, color=FALSE, shape=FALSE) +
   theme_minimal()
 print(point_plot_r)
-ggsave(paste0("../out/figures/dgp2_r_mse_point.png"),width=5,height=5,units="in",dpi = 300)
+ggsave(paste0("../out/figures/dgp2_r_rmse_point.png"),width=5,height=5,units="in",dpi = 300)
 # box plot for beta_hat
 select.col <- paste0("beta.",select.coef)
 box_plot <- ggplot(data = beta_hat_figure_loop_r, aes(x=as.factor(r))) +
@@ -259,3 +263,6 @@ box_plot <- ggplot(data = beta_hat_figure_loop_r, aes(x=as.factor(r))) +
   theme_minimal()
 print(box_plot)
 ggsave(paste0("../out/figures/dgp2_r_beta_box.png"),width=5,height=5,units="in",dpi = 300)
+
+
+save.image(file = "../out/figures/figures.RData")
