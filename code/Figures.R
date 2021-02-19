@@ -1,13 +1,19 @@
+###################################
+#####     Generate Plots     ######
+###################################
+
 rm(list = ls())
 
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("MASS")) install.packages("MASS")
 if (!require("plm")) install.packages("plm")
 if (!require("matlab")) install.packages("matlab") # for meshgrid()
+
 # for plot
 if (!require("ggplot2")) install.packages("ggplot2")
 if (!require("akima")) install.packages("akima")
 if (!require("plotly")) install.packages("plotly")
+
 # use JIT
 library(compiler)
 setCompilerOptions(optimize=3)
@@ -25,18 +31,21 @@ source("Statistics.R")
 coefficients <- c("beta1", "beta2", "mu", "gamma", "delta")
 select.coef <- 1 # choose 1~5 in coefficients
 
-##### DGP1 #####
 
-#### sim for different N ####
-all_N <- c(10,20,30,40,50,100)
-T_ <- 50
+###### Plots for DGP1 ######
+
+# Set parameters #
+all_N <- c(10,20,30,40,50,100) # Different sample sizes of N
+T_ <- 50 # Different sample sizes of T
+nsims <- 1000 # Number of simulations
+beta_true <- c(1,3,5,2,4) # Regression coefficients
+
+# Initialize #
 all_T <- rep(T_, length(all_N))
-nsims <- 1000
-beta_true <- c(1,3,5,2,4)
-sim_figure_dgp1_1 <- sim_dgp1_fe(beta_true, all_N, all_T, nsims)
+sim_figure_dgp1_1 <- sim_dgp1_fe(beta_true, all_N, all_T, nsims) 
 stat_figure_dgp1_1 <- statistics(sim_figure_dgp1_1$df_beta_hat_fe, NULL, beta_true, all_N, all_T, nsims)
 
-### plot beta_hat for different N ###
+## plot beta_hat for different N ##
 select.col <- paste0("beta.",select.coef)
 select.df_beta_hat <- select(sim_figure_dgp1_1$df_beta_hat_fe, c(1:3, select.col))
 select.df_beta_hat$N <- as.factor(select.df_beta_hat$N)

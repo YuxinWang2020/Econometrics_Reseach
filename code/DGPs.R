@@ -1,10 +1,12 @@
+###########################################
+#####     Data Generating Process     #####
+###########################################
+
 if (!require("plm")) install.packages("plm")
-#######################
-#####     DGP     #####
-#######################
 
-
+###### DGP1 ######
 # Y_i <- alpha_i + X_i %*% beta_true + u_i
+
 DGP1 <- function(T_, N, beta_true){
   # Set parameters
   p <- length(beta_true)
@@ -28,12 +30,16 @@ DGP1 <- function(T_, N, beta_true){
   return(list(X_list = X_list, Y_list = Y_list, df=df))
 }
 
-# model4: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + x_i*gamma + w_t*delta + Lambda_i*Factor_t + eps     # p=5, X=(x1,x2,1,x_i,w_t)
-# model3: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + Lambda_i*Factor_t + eps     # p=3, X=(x1,x2,1)
-# model2: y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + z_t + eps     # p=2, X=(x1,x2)
+
+
+###### DGP2 ######
 # model1: y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + eps     # p=2, X=(x1,x2)
+# model2: y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + z_t + eps     # p=2, X=(x1,x2)
+# model3: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + Lambda_i*Factor_t + eps     # p=3, X=(x1,x2,1)
+# model4: y_it = mu + beta1*x_it_1 + beta2*x_it_2 + x_i*gamma + w_t*delta + Lambda_i*Factor_t + eps     # p=5, X=(x1,x2,1,x_i,w_t)
 
 # beta_true = c(beta1, beta2, mu, gamma, delta)
+
 DGP2 <- function(T_, N, beta_true, model){
   p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2))
   # Set parameters

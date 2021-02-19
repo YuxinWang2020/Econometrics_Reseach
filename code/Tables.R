@@ -1,8 +1,13 @@
+###################################
+#####     Generate Tables     #####
+###################################
+
 rm(list = ls())
 
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("MASS")) install.packages("MASS")
 if (!require("plm")) install.packages("plm")
+
 # use JIT
 library(compiler)
 setCompilerOptions(optimize=3)
@@ -17,21 +22,29 @@ source("DGPs.R")
 source("Methods.R")
 source("Statistics.R")
 
+
 ##### Generate table #####
 coefficients <- c("beta1", "beta2", "mu", "gamma", "delta")
 
-##### sim1: Loop models & N & T for ls and fe #####
-all_N <- c(100,100,100,100,10,20,50)
-all_T <- c(10,20,50,100,100,100,100)
-nsims <- 1000
-beta_true <- c(1,3,5,2,4)
-tolerance <- 0.0001
-r <- 2
-models <- c("model1","model2","model3","model4")
+
+### 1: Repeatition of Table 1 in paper Bai(2009), page 1261 ###
+
+# Set parameters #
+all_N <- c(100,100,100,100,10,20,50) # Different Sample sizes of N
+all_T <- c(10,20,50,100,100,100,100) # Different Sample sizes of T
+nsims <- 1000 # Number of simulations
+beta_true <- c(1,3,5,2,4) # Regression coefficients
+tolerance <- 0.0001 # Iteration precision
+r <- 2 # Number of factprs
+models <- c("model1","model2","model3","model4") # Different models defined in the file DGPs
+
+# Initialize #
 sim_data_list1 <- as.list(rep(NA, length(models)))
 names(sim_data_list1) <- models
 table_loop_models_list <- stat_ls_list1 <- stat_fe_list1 <- sim_data_list1
 select_statistics <- list(colName = c("mean", "rmse"), presentName = c("Mean", "SD"))
+
+# Loop over different models & N & T, for both within estimator & interactive fe estimator #
 for(model in models){
   sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde=F, need.fe=T) # set need.sde=T if sde is contained in select_statistics
   sim_data_list1[[model]] <- sim_data
@@ -58,20 +71,28 @@ for(model in models){
   table_loop_models_list[[model]] <- table_loop_models
 }
 
-#####  Loop for r ##### 
-r_N <- c(50)
-r_T <- c(50)
-nsims <- 1000
-beta_true <- c(1,3,5,2,4)
-tolerance <- 0.0001
-model <- "model4"
-p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2))
-rs <- c(1:10)
+
+
+### 2: Change number of factors and compare the statistical results ###
+
+# Set parameters #
+r_N <- c(50) # Different sample sizes of N
+r_T <- c(50) # Different sample sizes of T
+nsims <- 1000 # Number of simulations
+beta_true <- c(1,3,5,2,4) # Regression coefficients
+tolerance <- 0.0001 # Iteration precision
+model <- "model4" # we use model 4 in chaning r
+p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2)) #
+rs <- c(1:10) # range of r, from 1 to 10
+
+# Initialize #
 sim_data_list2 <- as.list(rep(NA, length(rs)))
 names(sim_data_list2) <- paste0("r",rs)
 stat_ls_list2 <- sim_data_list2
 select_statistics <- list(colName = c("mean", "rmse", "sde"), presentName = c("Mean", "SD", "SDE"))
 table_loop_r <- data.frame(matrix(NA, nrow = 0, ncol = 0))
+
+# Loop over different factor numbers #
 for(i in 1:length(rs)){
   r <- rs[i]
   sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, r_N, r_T, nsims, need.sde=T, need.fe=F)
@@ -88,4 +109,6 @@ for(i in 1:length(rs)){
 write.csv(table_loop_r, file = "../out/tables/table_loop_r.csv", row.names = FALSE)
 
 
+
+### 3: Save results to a file###
 save.image(file = "../out/tables/tables.RData")

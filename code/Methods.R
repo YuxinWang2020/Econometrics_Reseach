@@ -2,10 +2,10 @@
 ####   Method    ####
 #####################
 
-#####  Introduction   #####
+#####  Simple Fixed Effects Model   #####
 
-### Fixed Effects Model ###
-OLS_FE <- function(X_list, Y_list){
+# For model 1, we write a function to calculate the within estimator.
+OLS_FE <- function(X_list, Y_list){ 
   # Initialize
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
@@ -25,7 +25,8 @@ OLS_FE <- function(X_list, Y_list){
   beta_hat_fe <- solve(A) %*% B
   return(list(beta_hat = beta_hat_fe))
 }
-# alternatively, we can use plm package for fixed effect estimation
+
+# Alternatively, we can use plm package for estimation.
 OLS_FE2 <- function(df){
   p <- ncol(df) - 3
   data <- pdata.frame(df,index=c("i","t"))
@@ -34,7 +35,8 @@ OLS_FE2 <- function(df){
                 effect = "individual",model="within")
   return(list(beta_hat = as.matrix(result$coefficients)))
 }
-# now we use plm package to calculate model 2-4
+
+# Now we use plm package to calculate model 2-4.
 OLS_FE3 <- function(df){
   p <- ncol(df) - 3
   formulate <- paste0("y_it ~ ", paste(paste0("x_it_",c(1:p)), collapse = " + "))
@@ -43,10 +45,11 @@ OLS_FE3 <- function(df){
   return(list(beta_hat = as.matrix(result$coefficients)))
 }
 
+
+
 #####  Interacctive Fixed Effect Methods  #####
 
-### Least Squares Model ###
-#Step 1:define funtion to calculate F_hat, dim of F_hat is (T_, r)
+#Step 1:define funtion to calculate F_hat, dim of F_hat is (T_, r).
 calculate_F_hat <- function(X_list, Y_list, beta_hat, r){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
@@ -64,7 +67,7 @@ calculate_F_hat <- function(X_list, Y_list, beta_hat, r){
   return(F_hat)
 }
 
-#Step 2:define funtion to calculate Lambda_hat, dim of Lambda_hat is (r, N)
+#Step 2:define funtion to calculate Lambda_hat, dim of Lambda_hat is (r, N).
 calculate_Lambda_hat <- function(X_list, Y_list, beta_hat, F_hat, r){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
@@ -79,7 +82,7 @@ calculate_Lambda_hat <- function(X_list, Y_list, beta_hat, F_hat, r){
   return(Lambda_hat)
 }
 
-#Step 3:define funtion to calculate Beta_hat
+#Step 3:define funtion to calculate Beta_hat.
 calculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
@@ -97,7 +100,7 @@ calculate_beta_hat <- function(X_list, Y_list, F_, Lambda){
   return(beta_hat)
 }
 
-#Step 5:calculate Beta_hat by iterations
+#Step 4:calculate Beta_hat by iterations.
 least_squares <- function(X_list, Y_list, df, tolerance, r, model){
   # Initialize
   p <- dim(X_list[[1]])[2]

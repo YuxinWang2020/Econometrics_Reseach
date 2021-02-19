@@ -1,3 +1,7 @@
+#####################################
+#####     Factor Estimation     #####
+#####################################
+
 rm(list = ls())
 if (!require("MASS")) install.packages("MASS")
 if (!require("dplyr")) install.packages("dplyr")
@@ -11,9 +15,9 @@ dir.create("../out/tables", showWarnings = F)
 
 source("DGPs.R")
 source("Methods.R")
-#######################
-#####     DGP     #####
-#######################
+
+
+### Step 1: data generating process ###
 
 DGP3 <- function(N,T_,r){
   Lambda_i <- matrix(rnorm(n = r*N, mean = 0, sd = 1), nrow=r, ncol=N)
@@ -27,7 +31,11 @@ DGP3 <- function(N,T_,r){
   return(X_list)
 }
 
-# Estimate F_tilde by X_list and r
+
+
+### Step 2: calculation process following the paper Bai,Ng (2002) ###
+
+# Estimate F_tilde by X_list and r #
 F_tilde <- function(X_list, r){
   N <- length(X_list)
   T_ <- length(X_list[[1]])[1]
@@ -41,7 +49,7 @@ F_tilde <- function(X_list, r){
   return(F_tilde)
 }
 
-# Estimate lambda_tilde by F_tilde, X_list and r
+# Estimate lambda_tilde by F_tilde, X_list and r #
 lambda_tilde <- function(F_tilde, X_list, r){
   N <- length(X_list)
   T_ <- length(X_list[[1]])[1]
@@ -53,7 +61,7 @@ lambda_tilde <- function(F_tilde, X_list, r){
   return(Lambda_tilde)
 }
 
-# Define id for different g_functions
+# Define id for different g_functions #
 g <- function(N,T_,id){
   if(id==1){
     return((N+T_)/(N*T_)*log((N*T_)/(N+T_)))
@@ -71,7 +79,7 @@ g <- function(N,T_,id){
   
 }
 
-# Define the sum of squared residuals function
+# Define the sum of squared residuals function #
 VkF <- function(r,X_list,Lambda,F_){
   N <- length(X_list)
   T_ <- length(X_list[[1]])[1]
@@ -83,7 +91,7 @@ VkF <- function(r,X_list,Lambda,F_){
   return( sum((X_it-Lambda%*%t(F_))^2)/(N*T_))
 }
 
-# Define IC criteria 
+# Define IC criteria #
 IC <- function(r, X_list,id){
   N <- length(X_list)
   T_ <- length(X_list[[1]])[1]
@@ -100,7 +108,7 @@ IC <- function(r, X_list,id){
   
 }
 
-# Define PC criteria 
+# Define PC criteria #
 PC <- function(r,X_list,rmax,id){
   N <- length(X_list)
   T_ <- length(X_list[[1]])[1]
@@ -120,7 +128,7 @@ PC <- function(r,X_list,rmax,id){
   return(pc)
 }
 
-# Calculate r_hat by different criterias
+# Calculate r_hat by different criterias #
 r_hat <- function(rmax, X_list, panelty,id){
   v <- c()
   if(panelty=="IC"){
@@ -137,7 +145,11 @@ r_hat <- function(rmax, X_list, panelty,id){
   }
 }
 
-# Generate data frame to compare criterias
+
+
+### Step 3: generate data frame to compare different criterias ###
+
+# a). by using DGP3, we do a replication of Table 2 in Bai,Ng (2002), page 205 #
 CompareCriterias <- function(r=3, rmax=8, nsim=1000, all_N=c(100,100,200,500,1000), all_T=c(40,60,60,60,60)){
   df <- data.frame(N=all_N,T_=all_T, PC1=NA,PC2=NA,PC3=NA,IC1=NA,IC2=NA,IC3=NA)
   for(case in 1:length(all_N)){
@@ -163,15 +175,17 @@ df <- CompareCriterias()
 df
 write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = FALSE)
 
-
-# Generate data frame to compare criterias
+# b). by using DGP2, we use the same method for model4 in paper Bai(2009), page 1260 #
 CompareCriterias_DGP2 <- function(rmax=8,nsim=1000){
-  all_N <- c(100,100,100,100,10,20,50)
-  all_T <- c(10,20,50,100,100,100,100)
-  model="model4"
-  beta_true=c(1,3,5,4,2)
-  tolerance=0.0001
-  r0=8
+  # Set parameters #
+  all_N <- c(100,100,100,100,10,20,50) # Different Sample sizes of N
+  all_T <- c(10,20,50,100,100,100,100) # Different Sample sizes of T
+  model="model4" # we use model 4 here
+  beta_true=c(1,3,5,4,2)  # Regression coefficients
+  tolerance=0.0001 # Iteration precision
+  r0=8 # starting value of factor number
+  
+  # Initialize and loop #
   df <- data.frame(N=all_N,T_=all_T, PC1=NA,PC2=NA,PC3=NA,IC1=NA,IC2=NA,IC3=NA)
   for(case in 1:length(all_N)){
     N <- all_N[case]
@@ -201,23 +215,6 @@ df_dgp2
 write.csv(df_dgp2, file = "../out/tables/determine_num_of_factors_dgp2.csv", row.names = FALSE)
 
 
-## caculate r_hat
 
-caculate_r_hat <- function(beta_true=c(1,3,5,2,4),tolerance=0.0001,r0=8,rmax=10,nsim=1000,T_=100,N=100,model="model4"){
-  df <- data.frame(PC1=rep(NA, nsim),IC1=NA)
-  for (i in 1:nsim) {
-    sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model)
-    result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r0, model)
-    beta_hat <- result_ls$beta_hat
-    U_list <- mapply(function(Y_i, X_i) {Y_i - X_i %*% beta_hat}, sim_data$Y_list, sim_data$X_list, SIMPLIFY=F)
-    
-    df$PC1[i] <- r_hat(rmax, U_list,"PC",1)
-    df$IC1[i] <- r_hat(rmax, U_list,"IC",1)
-  }
-  return(df)
-}
-# df <- caculate_r_hat(r0=8, rmax=10, nsim=1000)
-# colMeans(df)
-
-
+### Step 4: save results to a file ###
 save.image(file = "../out/tables/factorEstimation.RData")

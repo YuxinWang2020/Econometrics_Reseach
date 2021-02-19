@@ -1,13 +1,14 @@
+##############################
+#####     Statistics     #####
+##############################
+
 library(foreach)
 if (!require("doParallel")) install.packages("doParallel")
 
-##########################
-#####     Statistics     #####
-##########################
-
 #####  Compute mean squared error  #####
-#input: data frame or matrix of estimations and real parameters
-#output: mean squared error
+
+# input: data frame or matrix of estimations and real parameters
+# output: mean squared error
 mse <- function(est_df, real_para){
   mse <- 0
   N <- nrow(est_df)
@@ -19,6 +20,7 @@ mse <- function(est_df, real_para){
   return(mse)
 }
 
+# calculate the mean of root-mean-square errors of different simulations
 rmse <- function(est_df, real_para){
   mse <- rep(0, 4)
   N <- nrow(est_df)
@@ -29,8 +31,11 @@ rmse <- function(est_df, real_para){
   return(rmse)
 }
 
-#####  Compute standard error  #####
-#Page 1240, define funtion to calculate a_ik
+
+
+#####  Compute standard error of interactive estimator #####
+
+#Page 1240, define funtion to calculate a_ik.
 calculate_a <- function(N, Lambda_hat){
   A <- solve(crossprod(Lambda_hat, Lambda_hat) / N)
   a <- matrix(NA, nrow = N, ncol = N)
@@ -42,7 +47,7 @@ calculate_a <- function(N, Lambda_hat){
   return(a)
 }
 
-#Page 1241, define funtion to calculate Zi
+#Page 1241, define funtion to calculate Zi.
 calculate_Z <- function(X_list, N, M, a){
   Z_list <- list()
   for(i in 1:N){
@@ -52,7 +57,7 @@ calculate_Z <- function(X_list, N, M, a){
   return(Z_list)
 }
 
-#Page 1246 & 1252, define funtion to calculate D0 and D1
+#Page 1246 & 1252, define funtion to calculate D0 and D1.
 calculate_D <- function(X_list, Y_list, N, T_, p, beta_hat, F_hat, Lambda_hat, Z){
   sita_square <- rep(0, N)
   for(i in 1:N){
@@ -74,7 +79,7 @@ calculate_D <- function(X_list, Y_list, N, T_, p, beta_hat, F_hat, Lambda_hat, Z
   return(list(D0=D0, D1=D1))
 }
 
-#Page 1246, define funtion to calculate covariance matrix of beta_hat
+#Page 1246, define funtion to calculate covariance matrix of beta_hat.
 calculate_sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
   N <- length(X_list)
   T_ <- dim(X_list[[1]])[1]
@@ -88,6 +93,7 @@ calculate_sde <- function(X_list, Y_list, beta_hat, F_hat, Lambda_hat){
   return(sde)
 }
 
+# calculate the mean value of beta_hat
 mean_value <- function(est_list){
   #Input: list of estimations
   #Output: vector of mean estimation, denoted by m
@@ -102,8 +108,12 @@ mean_value <- function(est_list){
   return (1/N*m)
 }
 
-#####  Simulation  #####
 
+
+
+#####  Monte Carlo Simulations  #####
+
+# simulations for DGP1
 sim_dgp1_fe <- function(beta_true, all_N, all_T, nsims){
   # init for parallel computing
   cl<-makeCluster(detectCores()) # create cluster with all cpu cores
@@ -130,6 +140,7 @@ sim_dgp1_fe <- function(beta_true, all_N, all_T, nsims){
   return(list(df_beta_hat_fe=df_beta_hat_fe))
 }
 
+# simulations for DGP2
 sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, need.sde, need.fe){
   # init for parallel computing
   cl<-makeCluster(detectCores()) # create cluster with all cpu cores
@@ -180,7 +191,13 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, 
   return(list(df_beta_hat_ls=df_beta_hat_ls, df_sde=df_sde, df_beta_hat_fe=df_beta_hat_fe))
 }
 
+
+
+
 #####  Statistics  #####
+# generate statistics of each N & T, take the mean of different simulations, and store them in a data frame
+# including mean, bias, rmse, standard error and cofidence interval
+
 statistics <- function(df_beta_hat, df_sde, beta_true, all_N, all_T, nsims){
   # Initialize
   p <- ncol(df_beta_hat) - 3
