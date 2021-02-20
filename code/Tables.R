@@ -76,8 +76,8 @@ for(model in models){
 ### 2: Change number of factors and compare the statistical results ###
 
 # Set parameters #
-r_N <- c(50) # Different sample sizes of N
-r_T <- c(50) # Different sample sizes of T
+r_N <- c(50) # Sample sizes of N
+r_T <- c(50) # Sample sizes of T
 nsims <- 1000 # Number of simulations
 beta_true <- c(1,3,5,2,4) # Regression coefficients
 tolerance <- 0.0001 # Iteration precision

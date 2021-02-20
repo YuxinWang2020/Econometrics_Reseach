@@ -1,5 +1,9 @@
-# change starting value of model 2 #
-# model2: y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + z_t + eps     # p=2, X=(x1,x2)
+####################################
+# Change Starting Value of Model 2 #
+####################################
+
+# model2: y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + z_t + eps     
+# p=2, X=(x1,x2)
 
 rm(list = ls())
 
@@ -12,7 +16,10 @@ source("DGPs.R")
 source("Methods.R")
 source("Statistics.R")
 
-# starting value is pooling #
+### Interactive Fixed Effects Model ###
+
+### ls1: Starting value is pooling estimator ###
+
 least_squares1 <- function(X_list, Y_list, df, tolerance, r, model){
   # Initialize
   p <- dim(X_list[[1]])[2]
@@ -35,7 +42,7 @@ least_squares1 <- function(X_list, Y_list, df, tolerance, r, model){
   return(list(beta_hat=beta_hat, beta_hat_list=beta_hat_list, F_hat=F_hat, Lambda_hat=Lambda_hat))
 }
 
-# starting value is twoways #
+### ls2: Starting value is twoways estimator ### 
 least_squares2 <- function(X_list, Y_list, df, tolerance, r, model){
   # Initialize
   p <- dim(X_list[[1]])[2]
@@ -59,14 +66,18 @@ least_squares2 <- function(X_list, Y_list, df, tolerance, r, model){
   return(list(beta_hat=beta_hat, beta_hat_list=beta_hat_list, F_hat=F_hat, Lambda_hat=Lambda_hat))
 }
 
-T_<-100
-N<-100
-r<-2
-nsims<-5
-tolerance<-0.0001
-model <- "model2"
-beta_true<-c(1,3,5,0,0)
+# Set parameters for small tests #
+T_<-100 # Sample size of T
+N<-100 # Sample size of N
+r<-2 # Number of factors 
+nsims<- 10 # Number of simulations
+tolerance<-0.0001 # Iteration precision
+model <- "model2" # we use model 2 in chaning starting values
+beta_true<-c(1,3,5,0,0) # Regression coefficients
+
 beta_hat_df <- data.frame(method = rep(as.factor(c("ls1","ls2","fe3")), nsims), beta_hat = matrix( NA, ncol = 3))
+# "ls1","ls2": starting values from pooling and twoways estimator respectively, for interactive fixed effect model
+# "fe3": starting values from twoways estimator, for simple fixed effects model
 
 for (i in 1:nsims){
   dgp<-DGP2(T_,N, beta_true, model)
@@ -84,14 +95,17 @@ for (i in 1:nsims){
 View(beta_hat_df)
 beta_hat_df %>% group_by(method) %>% summarise(mean(beta_hat.1), mean(beta_hat.2))
 
-### generate table ###
-all_N <- c(100,100,100,100,10,20,50)
-all_T <- c(10,20,50,100,100,100,100)
-nsims<-100
-r<-2
-tolerance<-0.0001
-model <- "model2"
-beta_true<-c(1,3,5,0,0)
+
+### 3: Generate table for comparison ###
+
+# Set parameters #
+all_N <- c(100,100,100,100,10,20,50) # Different sample sizes of N
+all_T <- c(10,20,50,100,100,100,100) # Different sample sizes of T
+nsims<-1000 # Number of simulations
+r<-2 # Number of factors 
+tolerance<-0.0001 # Iteration precision
+model <- "model2" # we use model 2 in chaning starting values
+beta_true<-c(1,3,5,0,0) # Regression coefficients
 
 # Loop over all_N and all_T and c(1:nsims) for simulation
 df_beta_hat_ls <- data.frame(method = rep(as.factor(c("ls1","ls2","fe3")), nsims*length(all_N)),
@@ -120,4 +134,5 @@ for(case in 1:length(all_N)){
 }
 sv <- df_beta_hat_ls %>% group_by(N,T_,method) %>% summarise(mean(beta.1, na.rm=T), mean(beta.2, na.rm=T))
 View(sv)
+
 write.csv(sv, file = "test_starting_value/sv.csv", row.names = FALSE)

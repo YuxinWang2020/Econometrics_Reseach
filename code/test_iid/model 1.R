@@ -1,3 +1,11 @@
+########################################
+# Correlated Fixed Effects for Model 1 #
+########################################
+
+# model1 of DGP2 in the file "DGPs":
+# y_it = beta1*x_it_1 + beta2*x_it_2 + alpha_i + eps     # p=2, X=(x1,x2)
+# since model 1 doesn't contain iid varibles in fixed effects items, the result is same as the original model #
+
 rm(list = ls())
 
 if (!require("MASS")) install.packages("MASS")
@@ -14,17 +22,17 @@ setCompilerOptions(optimize=3)
 
 set.seed(123)
 
+### Data generating process ###
 DGP <- function(T_, N, beta_true){
   p <- 2
-  
   # Set parameters
   mu <- 0
   gamma <- 0
   delta <- 0
   iota <- rep(1, 2)
   mu1 <- mu2 <- c1 <- c2 <- 1
-  # Generate variables
   
+  # Generate variables
   Factor <- matrix(c(1,0), nrow=2, ncol=T_)
   Lambda <- rbind(matrix(rnorm(n = N, mean = 0, sd = 1), nrow=1, ncol=N), 1)
   
@@ -33,19 +41,13 @@ DGP <- function(T_, N, beta_true){
   Eps <- matrix(rnorm(n = T_*N, mean = 0, sd = 2), nrow=N, ncol=T_)
   e <- rnorm(n = N, mean = 0, sd = 1)
   eta <- rnorm(n = T_, mean = 0, sd = 1)
-  
   # Calculate intermediate variables
   iota_Lambda <- crossprod(Lambda, iota)
   iota_Factor <- crossprod(iota, Factor)
   Lambda_Factor <- crossprod(Lambda, Factor)
-  # x <- iota_Lambda + e
-  # w <- iota_Factor + eta
   # Simulate data
   X_1 <- mu1 + c1 * Lambda_Factor + iota_Lambda %*% rep(1, T_) + rep(1, N) %*% iota_Factor + Eta_1
   X_2 <- mu2 + c2 * Lambda_Factor + iota_Lambda %*% rep(1, T_) + rep(1, N) %*% iota_Factor + Eta_2
-  # X_3 <- matrix(1, nrow=N, ncol=T_)
-  # X_4 <- x %*% rep(1, T_)
-  # X_5 <- rep(1, N) %*% w
   Y <- beta_true[1]*X_1 + beta_true[2]*X_2 + Lambda_Factor + Eps
   # Save all results to data frame
   X_df <- data.frame(x_it_1 = as.vector(t(X_1)),
@@ -66,8 +68,9 @@ DGP <- function(T_, N, beta_true){
 
 
 
+### Interactive Fixed Effects Model ###
 
-### Least Squares Model ###
+# same as the content in the file "Methods"
 #Step 1:define funtion to calculate F_hat, dim of F_hat is (T_, r)
 calculate_F_hat <- function(X_list, Y_list, beta_hat_0, r){
   N <- length(X_list)
@@ -144,11 +147,7 @@ least_squares <- function(X_list, Y_list, df, tolerance, r,beta_hat_0){
   return(list(beta_hat=beta_hat, F_hat=F_hat, Lambda_hat=Lambda_hat))
 }
 
-
-
-
-
-
+# calculate the mean value of beta_hat #
 mean_value <- function(beta_hat_list){
   #Input: list of estimations
   #Output: vector of mean estimation, denoted by m
@@ -163,6 +162,7 @@ mean_value <- function(beta_hat_list){
   return (1/N*m)
 }
 
+# calculate the rmse of beta_hat #
 rmse <- function(beta_hat_list, real_beta){
   N <- length(beta_hat_list) 
   p <- length(real_beta)
@@ -181,26 +181,19 @@ rmse <- function(beta_hat_list, real_beta){
 
 
 
+### Generate result ###
 
-
-
-
-
-
-#Generate result
-
-r<-2
-nsim<-1000
-tol<-0.001
-real_beta<-c(1,3)
+r<-2 # Number of factors
+nsim<-1000 # Number of simulations
+tol<-0.001 # Iteration precision
+real_beta<-c(1,3) # Regression coefficients
 
 #Store the result in this data frame and set the names of the header
 rst<-data.frame()
 
-
-ncase<-7
-N_vec <- c(100,100,100,100,10,20,50)
-T_vec <- c(10,20,50,100,100,100,100)
+ncase<-7 # 7 combinations of different N & T
+N_vec <- c(100,100,100,100,10,20,50) # Different sample sizes of N
+T_vec <- c(10,20,50,100,100,100,100) # Different sample sizes of T
 
 for(c in 1:ncase){
   N<-N_vec[c]
@@ -239,31 +232,9 @@ for(c in 1:ncase){
   }
   rst<-rbind(rst,rowToAdd)
 }
-#rename the data frame
+
+# Rename the data frame #
 names(rst)<-c("N","T","beta1 mean", "beta1 sd", "beta2 mean", "beta2 sd")
-
-
 rst
 
-
 write.csv(rst, file = paste0( "model 1_", nsim, ".csv"), row.names = F)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
