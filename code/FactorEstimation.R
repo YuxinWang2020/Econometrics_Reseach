@@ -150,6 +150,7 @@ r_hat <- function(rmax, X_list, panelty,id){
 ### Step 3: generate data frame to compare different criterias ###
 
 # a). by using DGP3, we do a replication of Table 2 in Bai,Ng (2002), page 205 #
+
 CompareCriterias <- function(r=3, rmax=8, nsim=1000, all_N=c(100,100,200,500,1000), all_T=c(40,60,60,60,60)){
   df <- data.frame(N=all_N,T_=all_T, PC1=NA,PC2=NA,PC3=NA,IC1=NA,IC2=NA,IC3=NA)
   for(case in 1:length(all_N)){
@@ -176,6 +177,9 @@ df
 write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = FALSE)
 
 # b). by using DGP2, we use the same method for model4 in paper Bai(2009), page 1260 #
+# y_it = mu + beta1*x_it_1 + beta2*x_it_2 + x_i*gamma + w_t*delta + Lambda_i*Factor_t + eps     
+# p=5, X=(x1,x2,1,x_i,w_t)
+
 CompareCriterias_DGP2 <- function(rmax=8,nsim=1000){
   # Set parameters #
   all_N <- c(100,100,100,100,10,20,50) # Different Sample sizes of N
