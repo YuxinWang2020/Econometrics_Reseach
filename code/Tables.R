@@ -35,7 +35,7 @@ all_T <- c(10,20,50,100,100,100,100) # Different Sample sizes of T
 nsims <- 1000 # Number of simulations
 beta_true <- c(1,3,5,2,4) # Regression coefficients
 tolerance <- 0.0001 # Iteration precision
-r <- 2 # Number of factprs
+r <- 2 # Number of factors
 models <- c("model1","model2","model3","model4") # Different models defined in the file DGPs
 
 # Initialize #

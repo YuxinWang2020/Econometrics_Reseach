@@ -11,7 +11,7 @@ if (!require("dplyr")) install.packages("dplyr")
 if (!require("MASS")) install.packages("MASS")
 if (!require("plm")) install.packages("plm")
 
-# set.seed(123)
+set.seed(123)
 source("DGPs.R")
 source("Methods.R")
 source("Statistics.R")
@@ -135,4 +135,4 @@ for(case in 1:length(all_N)){
 sv <- df_beta_hat_ls %>% group_by(N,T_,method) %>% summarise(mean(beta.1, na.rm=T), mean(beta.2, na.rm=T))
 View(sv)
 
-write.csv(sv, file = "test_starting_value/sv.csv", row.names = FALSE)
+write.csv(sv, file = "test_starting_values/sv.csv", row.names = FALSE)
