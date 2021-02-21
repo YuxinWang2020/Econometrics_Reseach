@@ -114,7 +114,7 @@ nsims <- 1000 # Number of simulations
 beta_true <- c(1,3,5,2,4) # Regression coefficients
 tolerance <- 0.0001 # Iteration precision
 r <- 2 # Number of factors 
-models <- c("model1","model2","model3","model4") # Different models defined in the file DGPs
+models <- c("model1","model2","model3","model4") # Different models defined in the file "DGPs"
 
 # Run simulation #
 sim_figure_dgp2_1 <- lapply(as.list(models),
@@ -249,7 +249,7 @@ for(model in models){
 
 
 
-###### 3: Plots for different r in interactive-effect estimator ######
+###### 3: Plots for different r in the interactive-effects model ######
 
 ##### sim: keep N=50, T=50, r range in [1,2,3,4,5,6,7,8,9,10], use model4 in DGP2 #####
 
@@ -259,7 +259,7 @@ r_T <- c(50) # Sample size of T
 nsims <- 1000 # Number of simulations
 beta_true <- c(1,3,5,2,4) # Regression coefficients
 tolerance <- 0.0001 # Iteration precision
-model <- "model4" # Model4 defined in the file DGPs
+model <- "model4" # Model4 defined in the file "DGPs"
 rs <- c(1:10) # Different number of factors
 
 # Run simulation #
