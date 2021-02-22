@@ -2,6 +2,7 @@
 #####     Statistics     #####
 ##############################
 
+# for parallel computing
 library(foreach)
 if (!require("doParallel")) install.packages("doParallel")
 
@@ -118,25 +119,30 @@ sim_dgp1_fe <- function(beta_true, all_N, all_T, nsims){
   # init for parallel computing
   cl<-makeCluster(detectCores()) # create cluster with all cpu cores
   registerDoParallel(cl) # register cluster for DoParallel
-  func <- function(case){ # function to run in cluster
-    T_ <- T_N_sim$T_[case]
-    N <- T_N_sim$N[case]
-    sim_data <- DGP1(T_=T_, N=N, beta_true=beta_true)
-    result_fe <- OLS_FE(sim_data$X_list, sim_data$Y_list)
+  # function to run in cluster
+  func <- function(case){
+    T_ <- T_N_sim$T_[case] # get param T from data frame T_N_sim
+    N <- T_N_sim$N[case] # get param N from data frame T_N_sim
+    sim_data <- DGP1(T_=T_, N=N, beta_true=beta_true) # run DGP
+    result_fe <- OLS_FE(sim_data$X_list, sim_data$Y_list) # run within estimator and get beta_hat
     return(unlist(c(T_N_sim[case,], result_fe$beta_hat))) # combine results into a vector
   }
   clusterExport(cl=cl, varlist=c("DGP1", "OLS_FE"), envir=environment()) # export vars to cluster environment
   
-  # Loop over all_N and all_T and c(1:nsims) for simulation
+  # Generate data frame of param, which is Cartesian product of all_N and all_T and c(1:nsims).
   T_N_sim <- data.frame(T_ = rep(all_T, each=nsims),
                         N = rep(all_N, each=nsims),
                         sim = rep(1:nsims, times=length(all_T)))
-  # Loop over T_N_sim, use `rbind` to combine results from every simulation
+  # Loop over every row in T_N_sim and input row number as param to `func`.
+  # `foreach` function will run all these rows in all cpu cores at the same time.
+  # Use `rbind` to combine results from every running of `func`.
+  # Convert bound result to data frame. Columns are: T_, N, sim, beta.1, beta.2, beta.3, ...
   df_beta_hat_fe <- foreach(case=1:nrow(T_N_sim), .combine='rbind') %dopar%
-    func(case) %>% as.data.frame() # columns is : T_, N, sim, beta.1, beta.2, beta...
+    func(case) %>% as.data.frame()
+  
+  colnames(df_beta_hat_fe) <- c("T_", "N", "sim", paste0("beta.", 1:length(beta_true)))
   
   stopImplicitCluster() # stop cluster
-  colnames(df_beta_hat_fe) <- c("T_", "N", "sim", paste0("beta.", 1:length(beta_true)))
   return(list(df_beta_hat_fe=df_beta_hat_fe))
 }
 
@@ -145,12 +151,14 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, 
   # init for parallel computing
   cl<-makeCluster(detectCores()) # create cluster with all cpu cores
   registerDoParallel(cl) # register cluster for DoParallel
-  func <- function(case){ # function to run in cluster
-    T_ <- T_N_sim$T_[case]
-    N <- T_N_sim$N[case]
-    sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model)
-    result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r, model)
+  # function to run in cluster
+  func <- function(case){
+    T_ <- T_N_sim$T_[case] # get param T from data frame T_N_sim
+    N <- T_N_sim$N[case] # get param N from data frame T_N_sim
+    sim_data <- DGP2(T_=T_, N=N, beta_true=beta_true, model) # run DGP
+    result_ls <- least_squares(sim_data$X_list, sim_data$Y_list, sim_data$df, tolerance, r, model) # run interactive-effect estimator
     beta_hat_ls <- result_ls$beta_hat
+    # if within estimator is also need, run within estimator with the same data
     beta_hat_fe <- rep(NA, 2)
     if(need.fe){
       df_no_singular <- sim_data$df[,1:5] # select T,N,y,x1,x2 from sim_data$df
@@ -163,31 +171,37 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, 
         beta_hat_fe <- fe_result$beta_hat
       }
     }
+    # if need to caculate sde of interactive-effect estimator
     ls_sde <- rep(NA, p)
     if(need.sde){
       ls_sde <- calculate_sde(sim_data$X_list, sim_data$Y_list, result_ls$beta_hat, result_ls$F_hat, result_ls$Lambda_hat)
       ls_sde <- sqrt(diag(ls_sde))
     }
-    return(unlist(c(T_N_sim[case,], beta_hat_ls, beta_hat_fe, ls_sde)))
+    return(unlist(c(T_N_sim[case,], beta_hat_ls, beta_hat_fe, ls_sde))) # combine results into a vector
   }
   clusterExport(cl=cl, varlist=c(ls(.GlobalEnv)), envir=environment()) # export all vars to cluster environment
   
   p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2)) # p is length of X
-  # Loop over all_N and all_T and c(1:nsims) for simulation
+  # Generate data frame of param, which is Cartesian product of all_N and all_T and c(1:nsims).
   T_N_sim <- data.frame(T_ = rep(all_T, each=nsims),
                         N = rep(all_N, each=nsims),
                         sim = rep(1:nsims, times=length(all_T)))
-  # Loop over T_N_sim, use `rbind` to combine results from every simulation
+  # Loop over every row in T_N_sim and input row number as param to `func`.
+  # `foreach` function will run all these rows in all cpu cores at the same time.
+  # Use `rbind` to combine results from every running of `func`.
+  # Convert bound result to data frame. Columns are: T_, N, sim, beta_hat_ls(length=p), beta_hat_fe(length=2), ls_sde(length=p)
   beta.ls_beta.fe_ls.sde <- foreach(case=1:nrow(T_N_sim), .combine='rbind', .packages=c("plm", "dplyr")) %dopar%
-    func(case) %>% as.data.frame() # columns is : T_, N, sim, beta_hat_ls(length=p), beta_hat_fe(length=2), ls_sde(length=p)
-  stopImplicitCluster() # stop cluster
+    func(case) %>% as.data.frame()
   
+  # split bound result into 3 data frame (df_beta_hat_ls, df_beta_hat_fe, df_sde)
   df_beta_hat_ls <- beta.ls_beta.fe_ls.sde[, c(1:3, 4:(3+p))]
   df_beta_hat_fe <- beta.ls_beta.fe_ls.sde[, c(1:3, (4+p):(5+p))]
   df_sde <- beta.ls_beta.fe_ls.sde[, c(1:3, (6+p):(5+2*p))]
   colnames(df_beta_hat_ls) <- c("T_", "N", "sim", paste0("beta.", 1:p))
   colnames(df_beta_hat_fe) <- c("T_", "N", "sim", paste0("beta.", 1:2))
   colnames(df_sde) <- c("T_", "N", "sim", paste0("sde.", 1:p))
+  
+  stopImplicitCluster() # stop cluster
   return(list(df_beta_hat_ls=df_beta_hat_ls, df_sde=df_sde, df_beta_hat_fe=df_beta_hat_fe))
 }
 
