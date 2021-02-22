@@ -20,6 +20,7 @@ source("Methods.R")
 ### Step 1: data generating process ###
 # Y = beta*X + Lambda_i*Factor_t + eps
 # U = Y - beta*X = Lambda_i*Factor_t + eps
+
 DGP3 <- function(N,T_,r){
   Lambda_i <- matrix(rnorm(n = r*N, mean = 0, sd = 1), nrow=r, ncol=N)
   F_t <- matrix(rnorm(n = r*T_, mean = 0, sd = 1), nrow=r, ncol=T_)
