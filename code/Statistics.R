@@ -167,7 +167,7 @@ sim_dgp2_ls_fe <- function(beta_true, tolerance, r, model, all_N, all_T, nsims, 
         fe_result <- OLS_FE2(df_no_singular)
         beta_hat_fe <- fe_result$beta_hat
       } else {
-        fe_result <- OLS_FE2(df_no_singular)
+        fe_result <- OLS_FE3(df_no_singular)
         beta_hat_fe <- fe_result$beta_hat
       }
     }
