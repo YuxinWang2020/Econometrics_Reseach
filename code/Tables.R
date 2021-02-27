@@ -36,7 +36,7 @@ nsims <- 1000 # Number of simulations
 beta_true <- c(1,3,5,2,4) # Regression coefficients
 tolerance <- 0.0001 # Iteration precision
 r <- 2 # Number of factors
-models <- c("model1","model2","model3","model4") # Different models defined in the file DGPs
+models <- c("model2") # Different models defined in the file DGPs
 
 # Initialize #
 sim_data_list1 <- as.list(rep(NA, length(models)))
@@ -71,43 +71,43 @@ for(model in models){
   table_loop_models_list[[model]] <- table_loop_models
 }
 
-
-
-### 2: Change number of factors and compare the statistical results ###
-
-# Set parameters #
-r_N <- c(50) # Sample sizes of N
-r_T <- c(50) # Sample sizes of T
-nsims <- 1000 # Number of simulations
-beta_true <- c(1,3,5,2,4) # Regression coefficients
-tolerance <- 0.0001 # Iteration precision
-model <- "model4" # we use model 4 in chaning r
-p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2)) #
-rs <- c(1:10) # range of r, from 1 to 10
-
-# Initialize #
-sim_data_list2 <- as.list(rep(NA, length(rs)))
-names(sim_data_list2) <- paste0("r",rs)
-stat_ls_list2 <- sim_data_list2
-select_statistics <- list(colName = c("mean", "rmse", "sde"), presentName = c("Mean", "SD", "SDE"))
-table_loop_r <- data.frame(matrix(NA, nrow = 0, ncol = 0))
-
-# Loop over different factor numbers #
-for(i in 1:length(rs)){
-  r <- rs[i]
-  sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, r_N, r_T, nsims, need.sde=T, need.fe=F)
-  sim_data_list2[[i]] <- sim_data
-  stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, r_N, r_T, nsims)
-  stat_ls_list2[[i]] <- stat_ls
-  
-  table_ls <- stat_ls[c("N","T_", paste0(rep(select_statistics$colName, p), ".",
-                                         rep(1:p, each=length(select_statistics$colName))))]
-  colnames(table_ls) <- c("N","T_", paste(rep(select_statistics$presentName, p),
-                                          rep(coefficients[1:p], each=length(select_statistics$presentName))))
-  table_loop_r <- bind_rows(table_loop_r,  cbind(r=r, table_ls))
-}
-write.csv(table_loop_r, file = "../out/tables/table_loop_r.csv", row.names = FALSE)
-
+# 
+# 
+# ### 2: Change number of factors and compare the statistical results ###
+# 
+# # Set parameters #
+# r_N <- c(50) # Sample sizes of N
+# r_T <- c(50) # Sample sizes of T
+# nsims <- 1000 # Number of simulations
+# beta_true <- c(1,3,5,2,4) # Regression coefficients
+# tolerance <- 0.0001 # Iteration precision
+# model <- "model4" # we use model 4 in chaning r
+# p <- ifelse(model == "model4", 5, ifelse(model == "model3", 3, 2)) #
+# rs <- c(1:10) # range of r, from 1 to 10
+# 
+# # Initialize #
+# sim_data_list2 <- as.list(rep(NA, length(rs)))
+# names(sim_data_list2) <- paste0("r",rs)
+# stat_ls_list2 <- sim_data_list2
+# select_statistics <- list(colName = c("mean", "rmse", "sde"), presentName = c("Mean", "SD", "SDE"))
+# table_loop_r <- data.frame(matrix(NA, nrow = 0, ncol = 0))
+# 
+# # Loop over different factor numbers #
+# for(i in 1:length(rs)){
+#   r <- rs[i]
+#   sim_data <- sim_dgp2_ls_fe(beta_true, tolerance, r, model, r_N, r_T, nsims, need.sde=T, need.fe=F)
+#   sim_data_list2[[i]] <- sim_data
+#   stat_ls <- statistics(sim_data$df_beta_hat_ls, sim_data$df_sde, beta_true, r_N, r_T, nsims)
+#   stat_ls_list2[[i]] <- stat_ls
+#   
+#   table_ls <- stat_ls[c("N","T_", paste0(rep(select_statistics$colName, p), ".",
+#                                          rep(1:p, each=length(select_statistics$colName))))]
+#   colnames(table_ls) <- c("N","T_", paste(rep(select_statistics$presentName, p),
+#                                           rep(coefficients[1:p], each=length(select_statistics$presentName))))
+#   table_loop_r <- bind_rows(table_loop_r,  cbind(r=r, table_ls))
+# }
+# write.csv(table_loop_r, file = "../out/tables/table_loop_r.csv", row.names = FALSE)
+# 
 
 
 ### 3: Save results to a file###
