@@ -174,9 +174,9 @@ CompareCriterias <- function(r=3, rmax=8, nsim=1000, all_N=c(100,100,200,500,100
   }
   return(df)
 }
-df <- CompareCriterias()
-df
-write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = FALSE)
+# df <- CompareCriterias()
+# df
+# write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = FALSE)
 
 # b). by using DGP2, we use the same method for model4 in paper Bai(2009), page 1260 #
 # y_it = mu + beta1*x_it_1 + beta2*x_it_2 + x_i*gamma + w_t*delta + Lambda_i*Factor_t + eps     
@@ -184,8 +184,8 @@ write.csv(df, file = "../out/tables/determine_num_of_factors.csv", row.names = F
 
 CompareCriterias_DGP2 <- function(rmax=8,nsim=1000){
   # Set parameters #
-  all_N <- c(100,100,100,100,10,20,50) # Different Sample sizes of N
-  all_T <- c(10,20,50,100,100,100,100) # Different Sample sizes of T
+  all_N <- c(100,100,200,500) # Different Sample sizes of N
+  all_T <- c(40,60,60,60) # Different Sample sizes of T
   model="model4" # we use model 4 here
   beta_true=c(1,3,5,4,2)  # Regression coefficients
   tolerance=0.0001 # Iteration precision
