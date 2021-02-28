@@ -24,11 +24,11 @@ set.seed(123)
 
 ### Data generating process ###
 DGP <- function(T_, N, beta_true){
-  p <- 3
+  p <- 5
   # Set parameters
   mu <- beta_true[3]
-  gamma <- 0
-  delta <- 0
+  gamma <- beta_true[4]
+  delta <- beta_true[5]
   iota <- rep(1, 2)
   mu1 <- mu2 <- c1 <- c2 <- 1
   
@@ -156,6 +156,15 @@ least_squares <- function(X_list, Y_list, df, tolerance, r,beta_hat_0){
   return(list(beta_hat=beta_hat, F_hat=F_hat, Lambda_hat=Lambda_hat))
 }
 
+OLS_FE3 <- function(df){
+  p <- ncol(df) - 3
+  formulate <- paste0("y_it ~ ", paste(paste0("x_it_",c(1:p)), collapse = " + "))
+  result <- plm(formulate, data=df,index=c("i","t"),
+                effect = "twoways",model="within")
+  return(list(beta_hat = as.matrix(result$coefficients)))
+}
+
+
 # calculate the mean value of beta_hat #
 mean_value <- function(beta_hat_list){
   #Input: list of estimations
@@ -193,14 +202,14 @@ rmse <- function(beta_hat_list, real_beta){
 ### Generate result ###
 
 r<-2 # Number of factors
-nsim<-1000 # Number of simulations
+nsim<-10 # Number of simulations
 tol<-0.001 # Iteration precision
-real_beta<-c(1,3) # Regression coefficients
+real_beta<-c(1,3,5,2,4) # Regression coefficients
 
 #Store the result in this data frame and set the names of the header
-rst<-data.frame()
-
 ncase<-7 # 7 combinations of different N & T
+rst<-data.frame(matrix(NA, nrow=ncase*2,ncol=13))
+
 N_vec <- c(100,100,100,100,10,20,50) # Different sample sizes of N
 T_vec <- c(10,20,50,100,100,100,100) # Different sample sizes of T
 
@@ -212,6 +221,8 @@ for(c in 1:ncase){
   beta_hat_list<-list()
   #list of pooled estimator
   beta_tilde_list<-list()
+  
+  beta_hat_fe_list <- list()
   
   for (i in 1:nsim){
     dgp<-DGP(T_,N, real_beta)
@@ -225,19 +236,35 @@ for(c in 1:ncase){
     ls<-least_squares(X_list,Y_list,df,tol,r,beta_hat_0)
     beta_hat_list[[i]]<-ls$beta_hat
     beta_tilde_list[[i]]<-beta_hat_0
+    
+    df_no_singular <- df[,1:5] # select T,N,y,x1,x2 from df
+    fe_result <- OLS_FE3(df_no_singular)
+    beta_hat_fe_list[[i]] <- fe_result$beta_hat
+    
   }
   mv<-mean_value(beta_hat_list)
   sd<-rmse(beta_hat_list, real_beta)
-  rowToAdd<-c(N,T_)
+  mv_fe <- mean_value(beta_hat_fe_list)
+  sd_fe <- rmse(beta_hat_fe_list, real_beta[1:2])
+  
+  rowToAdd<-c("fe",N,T_)
+  for (i in 1:length(mv_fe)){
+    rowToAdd<-c(rowToAdd,mv_fe[i])
+    rowToAdd<-c(rowToAdd,sd_fe[i])
+  }
+  rowToAdd<-c(rowToAdd,NA,NA,NA,NA,NA,NA)
+  rst[2*c-1,] <- rowToAdd
+  
+  rowToAdd<-c("ls",N,T_)
   for (i in 1:length(mv)){
     rowToAdd<-c(rowToAdd,mv[i])
     rowToAdd<-c(rowToAdd,sd[i])
   }
-  rst<-rbind(rst,rowToAdd)
+  rst[2*c,] <- rowToAdd
 }
 
 # Rename the data frame #
-names(rst)<-c("N","T","beta1 mean", "beta1 sd", "beta2 mean", "beta2 sd", "mu mean", "mu sd",
+names(rst)<-c("Method","N","T","beta1 mean", "beta1 sd", "beta2 mean", "beta2 sd", "mu mean", "mu sd",
               "gamma mean", "gamma sd", "delta mean", "delta mean")
 
 
