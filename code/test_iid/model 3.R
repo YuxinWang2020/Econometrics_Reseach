@@ -198,7 +198,7 @@ rmse <- function(beta_hat_list, real_beta){
 ### Generate result ###
 
 r<-2 # Number of factors
-nsim<-10 # Number of simulations
+nsim<-1000 # Number of simulations
 tol<-0.001 # Iteration precision
 real_beta<-c(1,3,5) # Regression coefficients
 
